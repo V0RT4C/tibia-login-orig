@@ -518,7 +518,7 @@ void ProcessLoginRequest(TConnection *Connection){
 
 	TReadBuffer ReadBuffer(Connection->Buffer, Connection->RWSize);
 	ReadBuffer.Read8(); // always 1 for a login request
-	int TerminalType = ReadBuffer.Read16();
+	ReadBuffer.Read16(); // TerminalType (OS)
 	int TerminalVersion = ReadBuffer.Read16();
 	ReadBuffer.Read32(); // DATSIGNATURE
 	ReadBuffer.Read32(); // SPRSIGNATURE
@@ -564,8 +564,7 @@ void ProcessLoginRequest(TConnection *Connection){
 		return;
 	}
 
-	if(TerminalType < 0 || TerminalType >= NARRAY(TERMINALVERSION)
-			|| TERMINALVERSION[TerminalType] != TerminalVersion){
+	if(TerminalVersion != TERMINALVERSION[0]){
 		SendLoginError(Connection,
 				"Your terminal version is too old.\n"
 				"Please get a new version at\n"
