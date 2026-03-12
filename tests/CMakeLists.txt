@@ -33,3 +33,8 @@ add_executable(test_config test_config.cpp ../src/config/config.cpp
 target_include_directories(test_config PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_compile_features(test_config PRIVATE cxx_std_17)
 add_test(NAME test_config COMMAND test_config)
+
+add_executable(test_xtea test_xtea.cpp ../src/crypto/xtea.cpp)
+target_include_directories(test_xtea PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_compile_features(test_xtea PRIVATE cxx_std_17)
+add_test(NAME test_xtea COMMAND test_xtea)

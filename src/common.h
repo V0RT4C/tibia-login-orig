@@ -30,8 +30,8 @@ typedef void RSAKey;
 RSAKey *RSALoadPEM(const char *FileName);
 void RSAFree(RSAKey *Key);
 bool RSADecrypt(RSAKey *Key, uint8 *Data, int Size);
-void XTEAEncrypt(const uint32 *Key, uint8 *Data, int Size);
-void XTEADecrypt(const uint32 *Key, uint8 *Data, int Size);
+
+#include "crypto/xtea.h"
 
 // query.cc
 //==============================================================================

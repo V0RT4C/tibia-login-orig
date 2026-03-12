@@ -470,7 +470,7 @@ static void SendXTEAResponse(TConnection *Connection, BufferWriter *WriteBuffer)
 
 	WriteBuffer->rewrite_u16(0, EncryptedSize);
 	WriteBuffer->rewrite_u16(2, DataSize);
-	XTEAEncrypt(Connection->XTEA,
+	xtea_encrypt(Connection->XTEA,
 			WriteBuffer->buffer + 2,
 			WriteBuffer->position - 2);
 	Connection->State = CONNECTION_WRITING;

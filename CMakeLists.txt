@@ -16,6 +16,7 @@ set(SOURCES
     src/query.cpp
     src/status.cpp
     src/crypto.cpp
+    src/crypto/xtea.cpp
     src/config/config.cpp
     src/common/logging.cpp
     src/common/string_utils.cpp
