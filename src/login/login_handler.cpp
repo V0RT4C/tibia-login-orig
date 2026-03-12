@@ -18,65 +18,65 @@ static const int TERMINALVERSION[] = {770, 770, 770};
 
 // Login Request
 //==============================================================================
-static BufferWriter prepare_xtea_response(TConnection *connection){
-	if(connection->State != CONNECTION_PROCESSING){
+static BufferWriter prepare_xtea_response(Connection *connection){
+	if(connection->state != ConnectionState::Processing){
 		LOG_ERR("Connection %s is not PROCESSING (State: %d)",
-				connection->RemoteAddress, connection->State);
-		CloseConnection(connection);
+				connection->remote_address, (int)connection->state);
+		close_connection(connection);
 		return BufferWriter(NULL, 0);
 	}
 
-	BufferWriter write_buffer(connection->Buffer, sizeof(connection->Buffer));
+	BufferWriter write_buffer(connection->buffer, sizeof(connection->buffer));
 	write_buffer.write_u16(0); // Encrypted Size
 	write_buffer.write_u16(0); // Data Size
 	return write_buffer;
 }
 
-static void send_xtea_response(TConnection *connection, BufferWriter *write_buffer){
-	if(connection->State != CONNECTION_PROCESSING){
+static void send_xtea_response(Connection *connection, BufferWriter *write_buffer){
+	if(connection->state != ConnectionState::Processing){
 		LOG_ERR("Connection %s is not PROCESSING (State: %d)",
-				connection->RemoteAddress, connection->State);
-		CloseConnection(connection);
+				connection->remote_address, (int)connection->state);
+		close_connection(connection);
 		return;
 	}
 
 	ASSERT(write_buffer != NULL
-		&& write_buffer->buffer == connection->Buffer
-		&& write_buffer->size == sizeof(connection->Buffer)
+		&& write_buffer->buffer == connection->buffer
+		&& write_buffer->size == sizeof(connection->buffer)
 		&& write_buffer->position > 4);
 
 	int data_size = write_buffer->position - 4;
 	int encrypted_size = write_buffer->position - 2;
 	while((encrypted_size % 8) != 0){
-		write_buffer->write_u8(rand_r(&connection->RandomSeed));
+		write_buffer->write_u8(rand_r(&connection->random_seed));
 		encrypted_size += 1;
 	}
 
 	if(write_buffer->overflowed()){
 		LOG_ERR("Write buffer overflowed when writing response to %s",
-				connection->RemoteAddress);
-		CloseConnection(connection);
+				connection->remote_address);
+		close_connection(connection);
 		return;
 	}
 
 	write_buffer->rewrite_u16(0, encrypted_size);
 	write_buffer->rewrite_u16(2, data_size);
-	xtea_encrypt(connection->XTEA,
+	xtea_encrypt(connection->xtea,
 			write_buffer->buffer + 2,
 			write_buffer->position - 2);
-	connection->State = CONNECTION_WRITING;
-	connection->RWSize = write_buffer->position;
-	connection->RWPosition = 0;
+	connection->state = ConnectionState::Writing;
+	connection->rw_size = write_buffer->position;
+	connection->rw_position = 0;
 }
 
-static void send_login_error(TConnection *connection, const char *message){
+static void send_login_error(Connection *connection, const char *message){
 	BufferWriter write_buffer = prepare_xtea_response(connection);
 	write_buffer.write_u8(10); // LOGIN_ERROR
 	write_buffer.write_string(message);
 	send_xtea_response(connection, &write_buffer);
 }
 
-static void send_character_list(TConnection *connection, int num_characters,
+static void send_character_list(Connection *connection, int num_characters,
 		CharacterLoginData *characters, int premium_days, const ServerConfig& config){
 	BufferWriter write_buffer = prepare_xtea_response(connection);
 
@@ -101,16 +101,16 @@ static void send_character_list(TConnection *connection, int num_characters,
 	send_xtea_response(connection, &write_buffer);
 }
 
-void process_login_request(TConnection *connection, RsaKey& rsa_key,
+void process_login_request(Connection *connection, RsaKey& rsa_key,
 		QueryClient& client, const ServerConfig& config){
-	if(connection->RWSize != 145){
+	if(connection->rw_size != 145){
 		LOG_ERR("Invalid login request size from %s (expected 145, got %d)",
-				connection->RemoteAddress, connection->RWSize);
-		CloseConnection(connection);
+				connection->remote_address, connection->rw_size);
+		close_connection(connection);
 		return;
 	}
 
-	BufferReader read_buffer(connection->Buffer, connection->RWSize);
+	BufferReader read_buffer(connection->buffer, connection->rw_size);
 	read_buffer.read_u8(); // always 1 for a login request
 	read_buffer.read_u16(); // TerminalType (OS)
 	int terminal_version = read_buffer.read_u16();
@@ -122,8 +122,8 @@ void process_login_request(TConnection *connection, RsaKey& rsa_key,
 	read_buffer.read_bytes(asymmetric_data, sizeof(asymmetric_data));
 	if(read_buffer.overflowed()){
 		LOG_ERR("Input buffer overflowed while reading login command from %s",
-				connection->RemoteAddress);
-		CloseConnection(connection);
+				connection->remote_address);
+		close_connection(connection);
 		return;
 	}
 
@@ -132,24 +132,24 @@ void process_login_request(TConnection *connection, RsaKey& rsa_key,
 	// plaintext byte is ZERO, but that alone isn't enough.
 	if(!rsa_key.decrypt(asymmetric_data, sizeof(asymmetric_data)) || asymmetric_data[0] != 0){
 		LOG_ERR("Failed to decrypt asymmetric data from %s",
-				connection->RemoteAddress);
-		CloseConnection(connection);
+				connection->remote_address);
+		close_connection(connection);
 		return;
 	}
 
 	read_buffer = BufferReader(asymmetric_data, sizeof(asymmetric_data));
 	read_buffer.read_u8(); // always zero
-	connection->XTEA[0] = read_buffer.read_u32();
-	connection->XTEA[1] = read_buffer.read_u32();
-	connection->XTEA[2] = read_buffer.read_u32();
-	connection->XTEA[3] = read_buffer.read_u32();
+	connection->xtea[0] = read_buffer.read_u32();
+	connection->xtea[1] = read_buffer.read_u32();
+	connection->xtea[2] = read_buffer.read_u32();
+	connection->xtea[3] = read_buffer.read_u32();
 
 	char password[30];
 	int account_id = read_buffer.read_u32();
 	read_buffer.read_string(password, sizeof(password));
 	if(read_buffer.overflowed()){
-		LOG_ERR("Malformed asymmetric data from %s", connection->RemoteAddress);
-		CloseConnection(connection);
+		LOG_ERR("Malformed asymmetric data from %s", connection->remote_address);
+		close_connection(connection);
 		return;
 	}
 
@@ -168,10 +168,10 @@ void process_login_request(TConnection *connection, RsaKey& rsa_key,
 
 	char ip_string[16];
 	string_buf_format(ip_string, "%d.%d.%d.%d",
-			((connection->IPAddress >> 24) & 0xFF),
-			((connection->IPAddress >> 16) & 0xFF),
-			((connection->IPAddress >>  8) & 0xFF),
-			((connection->IPAddress >>  0) & 0xFF));
+			((connection->ip_address >> 24) & 0xFF),
+			((connection->ip_address >> 16) & 0xFF),
+			((connection->ip_address >>  8) & 0xFF),
+			((connection->ip_address >>  0) & 0xFF));
 
 	int num_characters = 0;
 	int premium_days = 0;

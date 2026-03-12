@@ -12,7 +12,7 @@ option(TIBIA772 "Target Tibia 7.72 protocol" OFF)
 # Main executable
 set(SOURCES
     src/main.cpp
-    src/connections.cpp
+    src/network/server.cpp
     src/login/login_handler.cpp
     src/query/login_query.cpp
     src/query/world_query.cpp

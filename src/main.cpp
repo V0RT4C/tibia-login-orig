@@ -102,14 +102,14 @@ int main(int argc, const char **argv){
 	}
 
 	atexit(exit_query);
-	atexit(ExitConnections);
-	if(!init_query() || !InitConnections()){
+	atexit(exit_connections);
+	if(!init_query() || !init_connections()){
 		return EXIT_FAILURE;
 	}
 
 	LOG("Running...");
 	while(g_ShutdownSignal == 0){
-		ProcessConnections();
+		process_connections();
 	}
 
 	LOG("Received signal %d (%s), shutting down...",

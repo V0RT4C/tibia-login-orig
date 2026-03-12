@@ -40,37 +40,7 @@ extern QueryClient* query_client;
 
 #include "login/login_handler.h"
 
-// connections.cc
-//==============================================================================
-enum ConnectionState {
-	CONNECTION_FREE			= 0,
-	CONNECTION_READING		= 1,
-	CONNECTION_PROCESSING	= 2,
-	CONNECTION_WRITING		= 3,
-};
-
-struct TConnection {
-	ConnectionState State;
-	int Socket;
-	int IPAddress;
-	int StartTime;
-	int RWSize;
-	int RWPosition;
-	uint32 RandomSeed;
-	uint32 XTEA[4];
-	char RemoteAddress[32];
-	uint8 Buffer[kb(2)];
-};
-
-struct TStatusRecord {
-	int IPAddress;
-	int Timestamp;
-};
-
-void CloseConnection(TConnection *Connection);
-void ProcessConnections(void);
-bool InitConnections(void);
-void ExitConnections(void);
-void ProcessStatusRequest(TConnection *Connection);
+#include "network/connection_types.h"
+#include "network/server.h"
 
 #endif //TIBIA_COMMON_H_
