@@ -1,7 +1,7 @@
 #include "common.h"
+#include "login/login_handler.h"
 
 #include <errno.h>
-#include <iterator>
 #include <memory>
 #include <vector>
 #include <fcntl.h>
@@ -9,12 +9,6 @@
 #include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
-
-#if TIBIA772
-static const int TERMINALVERSION[] = {772, 772, 772};
-#else
-static const int TERMINALVERSION[] = {770, 770, 770};
-#endif
 
 static std::unique_ptr<RsaKey> g_PrivateKey;
 
@@ -110,7 +104,7 @@ static int ListenerAccept(int Listener, uint32 *OutAddr, uint16 *OutPort){
 	}
 }
 
-static void CloseConnection(TConnection *Connection){
+void CloseConnection(TConnection *Connection){
 	if(Connection->Socket != -1){
 		close(Connection->Socket);
 		Connection->Socket = -1;
@@ -222,7 +216,7 @@ static void CheckConnectionRequest(TConnection *Connection){
 
 	int Command = Connection->Buffer[0];
 	if(Command == 1){
-		ProcessLoginRequest(Connection);
+		process_login_request(Connection, *g_PrivateKey, *query_client, g_config);
 	}else if(Command == 255){
 		ProcessStatusRequest(Connection);
 	}else{
@@ -420,209 +414,6 @@ void ExitConnections(void){
 	if(g_StatusRecords != NULL){
 		free(g_StatusRecords);
 		g_StatusRecords = NULL;
-	}
-}
-
-// Login Request
-//==============================================================================
-static BufferWriter PrepareXTEAResponse(TConnection *Connection){
-	if(Connection->State != CONNECTION_PROCESSING){
-		LOG_ERR("Connection %s is not PROCESSING (State: %d)",
-				Connection->RemoteAddress, Connection->State);
-		CloseConnection(Connection);
-		return BufferWriter(NULL, 0);
-	}
-
-	BufferWriter WriteBuffer(Connection->Buffer, sizeof(Connection->Buffer));
-	WriteBuffer.write_u16(0); // Encrypted Size
-	WriteBuffer.write_u16(0); // Data Size
-	return WriteBuffer;
-}
-
-static void SendXTEAResponse(TConnection *Connection, BufferWriter *WriteBuffer){
-	if(Connection->State != CONNECTION_PROCESSING){
-		LOG_ERR("Connection %s is not PROCESSING (State: %d)",
-				Connection->RemoteAddress, Connection->State);
-		CloseConnection(Connection);
-		return;
-	}
-
-	ASSERT(WriteBuffer != NULL
-		&& WriteBuffer->buffer == Connection->Buffer
-		&& WriteBuffer->size == sizeof(Connection->Buffer)
-		&& WriteBuffer->position > 4);
-
-	int DataSize = WriteBuffer->position - 4;
-	int EncryptedSize = WriteBuffer->position - 2;
-	while((EncryptedSize % 8) != 0){
-		WriteBuffer->write_u8(rand_r(&Connection->RandomSeed));
-		EncryptedSize += 1;
-	}
-
-	if(WriteBuffer->overflowed()){
-		LOG_ERR("Write buffer overflowed when writing response to %s",
-				Connection->RemoteAddress);
-		CloseConnection(Connection);
-		return;
-	}
-
-	WriteBuffer->rewrite_u16(0, EncryptedSize);
-	WriteBuffer->rewrite_u16(2, DataSize);
-	xtea_encrypt(Connection->XTEA,
-			WriteBuffer->buffer + 2,
-			WriteBuffer->position - 2);
-	Connection->State = CONNECTION_WRITING;
-	Connection->RWSize = WriteBuffer->position;
-	Connection->RWPosition = 0;
-}
-
-static void SendLoginError(TConnection *Connection, const char *Message){
-	BufferWriter WriteBuffer = PrepareXTEAResponse(Connection);
-	WriteBuffer.write_u8(10); // LOGIN_ERROR
-	WriteBuffer.write_string(Message);
-	SendXTEAResponse(Connection, &WriteBuffer);
-}
-
-static void SendCharacterList(TConnection *Connection, int NumCharacters,
-		CharacterLoginData *Characters, int PremiumDays){
-	BufferWriter WriteBuffer = PrepareXTEAResponse(Connection);
-
-	if(g_config.motd[0] != 0){
-		WriteBuffer.write_u8(20); // MOTD
-		WriteBuffer.write_string(g_config.motd);
-	}
-
-	WriteBuffer.write_u8(100); // CHARACTER_LIST
-	if(NumCharacters > UINT8_MAX){
-		NumCharacters = UINT8_MAX;
-	}
-	WriteBuffer.write_u8(NumCharacters);
-	for(int i = 0; i < NumCharacters; i += 1){
-		WriteBuffer.write_string(Characters[i].name);
-		WriteBuffer.write_string(Characters[i].world_name);
-		WriteBuffer.write_u32_be((uint32)Characters[i].world_address);
-		WriteBuffer.write_u16((uint16)Characters[i].world_port);
-	}
-	WriteBuffer.write_u16((uint16)PremiumDays);
-
-	SendXTEAResponse(Connection, &WriteBuffer);
-}
-
-void ProcessLoginRequest(TConnection *Connection){
-	if(Connection->RWSize != 145){
-		LOG_ERR("Invalid login request size from %s (expected 145, got %d)",
-				Connection->RemoteAddress, Connection->RWSize);
-		CloseConnection(Connection);
-		return;
-	}
-
-	BufferReader ReadBuffer(Connection->Buffer, Connection->RWSize);
-	ReadBuffer.read_u8(); // always 1 for a login request
-	ReadBuffer.read_u16(); // TerminalType (OS)
-	int TerminalVersion = ReadBuffer.read_u16();
-	ReadBuffer.read_u32(); // DATSIGNATURE
-	ReadBuffer.read_u32(); // SPRSIGNATURE
-	ReadBuffer.read_u32(); // PICSIGNATURE
-
-	uint8 AsymmetricData[128];
-	ReadBuffer.read_bytes(AsymmetricData, sizeof(AsymmetricData));
-	if(ReadBuffer.overflowed()){
-		LOG_ERR("Input buffer overflowed while reading login command from %s",
-				Connection->RemoteAddress);
-		CloseConnection(Connection);
-		return;
-	}
-
-	// IMPORTANT(fusion): Without a checksum, there is no way of validating
-	// the asymmetric data. The best we can do is to verify that the first
-	// plaintext byte is ZERO, but that alone isn't enough.
-	if(!g_PrivateKey->decrypt(AsymmetricData, sizeof(AsymmetricData)) || AsymmetricData[0] != 0){
-		LOG_ERR("Failed to decrypt asymmetric data from %s",
-				Connection->RemoteAddress);
-		CloseConnection(Connection);
-		return;
-	}
-
-	ReadBuffer = BufferReader(AsymmetricData, sizeof(AsymmetricData));
-	ReadBuffer.read_u8(); // always zero
-	Connection->XTEA[0] = ReadBuffer.read_u32();
-	Connection->XTEA[1] = ReadBuffer.read_u32();
-	Connection->XTEA[2] = ReadBuffer.read_u32();
-	Connection->XTEA[3] = ReadBuffer.read_u32();
-
-	char Password[30];
-	int AccountID = ReadBuffer.read_u32();
-	ReadBuffer.read_string(Password, sizeof(Password));
-	if(ReadBuffer.overflowed()){
-		LOG_ERR("Malformed asymmetric data from %s", Connection->RemoteAddress);
-		CloseConnection(Connection);
-		return;
-	}
-
-	if(AccountID <= 0){
-		SendLoginError(Connection, "You must enter an account number.");
-		return;
-	}
-
-	if(TerminalVersion != TERMINALVERSION[0]){
-		SendLoginError(Connection,
-				"Your terminal version is too old.\n"
-				"Please get a new version at\n"
-				"http://www.tibia.com.");
-		return;
-	}
-
-	char IPString[16];
-	string_buf_format(IPString, "%d.%d.%d.%d",
-			((Connection->IPAddress >> 24) & 0xFF),
-			((Connection->IPAddress >> 16) & 0xFF),
-			((Connection->IPAddress >>  8) & 0xFF),
-			((Connection->IPAddress >>  0) & 0xFF));
-
-	int NumCharacters = 0;
-	int PremiumDays = 0;
-	CharacterLoginData Characters[50];
-	int LoginCode = login_account(*query_client, AccountID, Password, IPString,
-			static_cast<int>(std::size(Characters)), &NumCharacters, Characters, &PremiumDays);
-	switch(LoginCode){
-		case 0:{
-			SendCharacterList(Connection, NumCharacters, Characters, PremiumDays);
-			break;
-		}
-
-		case 1:		// Invalid account number
-		case 2:{	// Invalid password
-			SendLoginError(Connection, "Accountnumber or password is not correct.");
-			break;
-		}
-
-		case 3:{
-			SendLoginError(Connection, "Account disabled for five minutes. Please wait.");
-			break;
-		}
-
-		case 4:{
-			SendLoginError(Connection, "IP address blocked for 30 minutes. Please wait.");
-			break;
-		}
-
-		case 5:{
-			SendLoginError(Connection, "Your account is banished.");
-			break;
-		}
-
-		case 6:{
-			SendLoginError(Connection, "Your IP address is banished.");
-			break;
-		}
-
-		default:{
-			if(LoginCode != -1){
-				LOG_ERR("Invalid login code %d", LoginCode);
-			}
-			SendLoginError(Connection, "Internal error, closing connection.");
-			break;
-		}
 	}
 }
 

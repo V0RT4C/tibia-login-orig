@@ -38,6 +38,8 @@ extern QueryClient* query_client;
 #include "status/xml_builder.h"
 #include "status/status_handler.h"
 
+#include "login/login_handler.h"
+
 // connections.cc
 //==============================================================================
 enum ConnectionState {
@@ -65,10 +67,10 @@ struct TStatusRecord {
 	int Timestamp;
 };
 
+void CloseConnection(TConnection *Connection);
 void ProcessConnections(void);
 bool InitConnections(void);
 void ExitConnections(void);
-void ProcessLoginRequest(TConnection *Connection);
 void ProcessStatusRequest(TConnection *Connection);
 
 #endif //TIBIA_COMMON_H_
