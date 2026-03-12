@@ -171,14 +171,14 @@ int ExecuteQuery(TQueryManagerConnection *Connection, bool AutoReconnect,
 			continue;
 		}
 
-		int ResponseSize = BufferRead16LE(Help);
+		int ResponseSize = read_u16_le(Help);
 		if(ResponseSize == 0xFFFF){
 			if(!ReadExact(Connection->Socket, Help, 4)){
 				Disconnect(Connection);
 				LOG_ERR("Failed to read response extended size");
 				return QUERY_STATUS_FAILED;
 			}
-			ResponseSize = BufferRead32LE(Help);
+			ResponseSize = read_u32_le(Help);
 		}
 
 		if(ResponseSize <= 0 || ResponseSize > BufferSize){

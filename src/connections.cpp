@@ -190,7 +190,7 @@ static void CheckConnectionInput(TConnection *Connection, int Events){
 				Connection->State = CONNECTION_PROCESSING;
 				break;
 			}else if(Connection->RWPosition == 2){
-				int PayloadSize = (int)BufferRead16LE(Connection->Buffer);
+				int PayloadSize = (int)read_u16_le(Connection->Buffer);
 				if(PayloadSize <= 0 || PayloadSize > (int)sizeof(Connection->Buffer)){
 					CloseConnection(Connection);
 					break;

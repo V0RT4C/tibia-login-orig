@@ -70,15 +70,15 @@ void XTEAEncrypt(const uint32 *Key, uint8 *Data, int Size){
 	while(Size >= 8){
 		uint32 Sum = 0x00000000UL;
 		uint32 Delta = 0x9E3779B9UL;
-		uint32 V0 = BufferRead32LE(&Data[0]);
-		uint32 V1 = BufferRead32LE(&Data[4]);
+		uint32 V0 = read_u32_le(&Data[0]);
+		uint32 V1 = read_u32_le(&Data[4]);
 		for(int i = 0; i < 32; i += 1){
 			V0 += (((V1 << 4) ^ (V1 >> 5)) + V1) ^ (Sum + Key[Sum & 3]);
 			Sum += Delta;
 			V1 += (((V0 << 4) ^ (V0 >> 5)) + V0) ^ (Sum + Key[(Sum >> 11) & 3]);
 		}
-		BufferWrite32LE(&Data[0], V0);
-		BufferWrite32LE(&Data[4], V1);
+		write_u32_le(&Data[0], V0);
+		write_u32_le(&Data[4], V1);
 		Data += 8;
 		Size -= 8;
 	}
@@ -89,15 +89,15 @@ void XTEADecrypt(const uint32 *Key, uint8 *Data, int Size){
 	while(Size >= 8){
 		uint32 Sum = 0xC6EF3720UL;
 		uint32 Delta = 0x9E3779B9UL;
-		uint32 V0 = BufferRead32LE(&Data[0]);
-		uint32 V1 = BufferRead32LE(&Data[4]);
+		uint32 V0 = read_u32_le(&Data[0]);
+		uint32 V1 = read_u32_le(&Data[4]);
 		for(int i = 0; i < 32; i += 1){
 			V1 -= (((V0 << 4) ^ (V0 >> 5)) + V0) ^ (Sum + Key[(Sum >> 11) & 3]);
 			Sum -= Delta;
 			V0 -= (((V1 << 4) ^ (V1 >> 5)) + V1) ^ (Sum + Key[Sum & 3]);
 		}
-		BufferWrite32LE(&Data[0], V0);
-		BufferWrite32LE(&Data[4], V1);
+		write_u32_le(&Data[0], V0);
+		write_u32_le(&Data[4], V1);
 		Data += 8;
 		Size -= 8;
 	}

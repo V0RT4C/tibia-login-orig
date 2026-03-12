@@ -98,105 +98,7 @@ bool ReadConfig(const char *FileName, TConfig *Config);
 
 // Buffer Utility
 //==============================================================================
-inline uint8 BufferRead8(const uint8 *Buffer){
-	return Buffer[0];
-}
-
-inline uint16 BufferRead16LE(const uint8 *Buffer){
-	return (uint16)Buffer[0]
-		| ((uint16)Buffer[1] << 8);
-}
-
-inline uint16 BufferRead16BE(const uint8 *Buffer){
-	return ((uint16)Buffer[0] << 8)
-		| (uint16)Buffer[1];
-}
-
-inline uint32 BufferRead32LE(const uint8 *Buffer){
-	return (uint32)Buffer[0]
-		| ((uint32)Buffer[1] << 8)
-		| ((uint32)Buffer[2] << 16)
-		| ((uint32)Buffer[3] << 24);
-}
-
-inline uint32 BufferRead32BE(const uint8 *Buffer){
-	return ((uint32)Buffer[0] << 24)
-		| ((uint32)Buffer[1] << 16)
-		| ((uint32)Buffer[2] << 8)
-		| (uint32)Buffer[3];
-}
-
-inline uint64 BufferRead64LE(const uint8 *Buffer){
-	return (uint64)Buffer[0]
-		| ((uint64)Buffer[1] << 8)
-		| ((uint64)Buffer[2] << 16)
-		| ((uint64)Buffer[3] << 24)
-		| ((uint64)Buffer[4] << 32)
-		| ((uint64)Buffer[5] << 40)
-		| ((uint64)Buffer[6] << 48)
-		| ((uint64)Buffer[7] << 56);
-}
-
-inline uint64 BufferRead64BE(const uint8 *Buffer){
-	return ((uint64)Buffer[0] << 56)
-		| ((uint64)Buffer[1] << 48)
-		| ((uint64)Buffer[2] << 40)
-		| ((uint64)Buffer[3] << 32)
-		| ((uint64)Buffer[4] << 24)
-		| ((uint64)Buffer[5] << 16)
-		| ((uint64)Buffer[6] << 8)
-		| (uint64)Buffer[7];
-}
-
-inline void BufferWrite8(uint8 *Buffer, uint8 Value){
-	Buffer[0] = Value;
-}
-
-inline void BufferWrite16LE(uint8 *Buffer, uint16 Value){
-	Buffer[0] = (uint8)(Value >> 0);
-	Buffer[1] = (uint8)(Value >> 8);
-}
-
-inline void BufferWrite16BE(uint8 *Buffer, uint16 Value){
-	Buffer[0] = (uint8)(Value >> 8);
-	Buffer[1] = (uint8)(Value >> 0);
-}
-
-inline void BufferWrite32LE(uint8 *Buffer, uint32 Value){
-	Buffer[0] = (uint8)(Value >>  0);
-	Buffer[1] = (uint8)(Value >>  8);
-	Buffer[2] = (uint8)(Value >> 16);
-	Buffer[3] = (uint8)(Value >> 24);
-}
-
-inline void BufferWrite32BE(uint8 *Buffer, uint32 Value){
-	Buffer[0] = (uint8)(Value >> 24);
-	Buffer[1] = (uint8)(Value >> 16);
-	Buffer[2] = (uint8)(Value >>  8);
-	Buffer[3] = (uint8)(Value >>  0);
-}
-
-inline void BufferWrite64LE(uint8 *Buffer, uint64 Value){
-	Buffer[0] = (uint8)(Value >>  0);
-	Buffer[1] = (uint8)(Value >>  8);
-	Buffer[2] = (uint8)(Value >> 16);
-	Buffer[3] = (uint8)(Value >> 24);
-	Buffer[4] = (uint8)(Value >> 32);
-	Buffer[5] = (uint8)(Value >> 40);
-	Buffer[6] = (uint8)(Value >> 48);
-	Buffer[7] = (uint8)(Value >> 56);
-}
-
-inline void BufferWrite64BE(uint8 *Buffer, uint64 Value){
-	Buffer[0] = (uint8)(Value >> 56);
-	Buffer[1] = (uint8)(Value >> 48);
-	Buffer[2] = (uint8)(Value >> 40);
-	Buffer[3] = (uint8)(Value >> 32);
-	Buffer[4] = (uint8)(Value >> 24);
-	Buffer[5] = (uint8)(Value >> 16);
-	Buffer[6] = (uint8)(Value >>  8);
-	Buffer[7] = (uint8)(Value >>  0);
-}
+#include "common/byte_order.h"
 
 struct TReadBuffer{
 	uint8 *Buffer;
@@ -222,7 +124,7 @@ struct TReadBuffer{
 	uint8 Read8(void){
 		uint8 Result = 0;
 		if(this->CanRead(1)){
-			Result = BufferRead8(this->Buffer + this->Position);
+			Result = read_u8(this->Buffer + this->Position);
 		}
 		this->Position += 1;
 		return Result;
@@ -231,7 +133,7 @@ struct TReadBuffer{
 	uint16 Read16(void){
 		uint16 Result = 0;
 		if(this->CanRead(2)){
-			Result = BufferRead16LE(this->Buffer + this->Position);
+			Result = read_u16_le(this->Buffer + this->Position);
 		}
 		this->Position += 2;
 		return Result;
@@ -240,7 +142,7 @@ struct TReadBuffer{
 	uint16 Read16BE(void){
 		uint16 Result = 0;
 		if(this->CanRead(2)){
-			Result = BufferRead16BE(this->Buffer + this->Position);
+			Result = read_u16_be(this->Buffer + this->Position);
 		}
 		this->Position += 2;
 		return Result;
@@ -249,7 +151,7 @@ struct TReadBuffer{
 	uint32 Read32(void){
 		uint32 Result = 0;
 		if(this->CanRead(4)){
-			Result = BufferRead32LE(this->Buffer + this->Position);
+			Result = read_u32_le(this->Buffer + this->Position);
 		}
 		this->Position += 4;
 		return Result;
@@ -258,7 +160,7 @@ struct TReadBuffer{
 	uint32 Read32BE(void){
 		uint32 Result = 0;
 		if(this->CanRead(4)){
-			Result = BufferRead32BE(this->Buffer + this->Position);
+			Result = read_u32_be(this->Buffer + this->Position);
 		}
 		this->Position += 4;
 		return Result;
@@ -337,35 +239,35 @@ struct TWriteBuffer{
 
 	void Write8(uint8 Value){
 		if(this->CanWrite(1)){
-			BufferWrite8(this->Buffer + this->Position, Value);
+			write_u8(this->Buffer + this->Position, Value);
 		}
 		this->Position += 1;
 	}
 
 	void Write16(uint16 Value){
 		if(this->CanWrite(2)){
-			BufferWrite16LE(this->Buffer + this->Position, Value);
+			write_u16_le(this->Buffer + this->Position, Value);
 		}
 		this->Position += 2;
 	}
 
 	void Write16BE(uint16 Value){
 		if(this->CanWrite(2)){
-			BufferWrite16BE(this->Buffer + this->Position, Value);
+			write_u16_be(this->Buffer + this->Position, Value);
 		}
 		this->Position += 2;
 	}
 
 	void Write32(uint32 Value){
 		if(this->CanWrite(4)){
-			BufferWrite32LE(this->Buffer + this->Position, Value);
+			write_u32_le(this->Buffer + this->Position, Value);
 		}
 		this->Position += 4;
 	}
 
 	void Write32BE(uint32 Value){
 		if(this->CanWrite(4)){
-			BufferWrite32BE(this->Buffer + this->Position, Value);
+			write_u32_be(this->Buffer + this->Position, Value);
 		}
 		this->Position += 4;
 	}
@@ -418,7 +320,7 @@ struct TWriteBuffer{
 
 	void Rewrite16(int Position, uint16 Value){
 		if((Position + 2) <= this->Position && !this->Overflowed()){
-			BufferWrite16LE(this->Buffer + Position, Value);
+			write_u16_le(this->Buffer + Position, Value);
 		}
 	}
 
@@ -428,7 +330,7 @@ struct TWriteBuffer{
 				memmove(this->Buffer + Position + 4,
 						this->Buffer + Position,
 						this->Position - Position);
-				BufferWrite32LE(this->Buffer + Position, Value);
+				write_u32_le(this->Buffer + Position, Value);
 			}
 
 			this->Position += 4;
