@@ -157,7 +157,7 @@ const char *GetStatusString(void){
 		int OnlinePeak = 0;
 
 		WorldInfo World = {};
-		if(GetWorld(g_config.status_world, &World) == 0){
+		if(get_world(*query_client, g_config.status_world, &World) == 0){
 			WorldName = World.name;
 			if(World.last_startup != 0 && World.last_startup > World.last_shutdown){
 				Uptime = TimeNow - World.last_startup;

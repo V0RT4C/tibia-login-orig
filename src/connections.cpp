@@ -582,7 +582,7 @@ void ProcessLoginRequest(TConnection *Connection){
 	int NumCharacters = 0;
 	int PremiumDays = 0;
 	CharacterLoginData Characters[50];
-	int LoginCode = LoginAccount(AccountID, Password, IPString,
+	int LoginCode = login_account(*query_client, AccountID, Password, IPString,
 			static_cast<int>(std::size(Characters)), &NumCharacters, Characters, &PremiumDays);
 	switch(LoginCode){
 		case 0:{

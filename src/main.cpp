@@ -5,6 +5,7 @@
 
 int          g_ShutdownSignal = 0;
 ServerConfig g_config         = {};
+QueryClient* query_client     = nullptr;
 
 static bool SigHandler(int SigNr, sighandler_t Handler){
 	struct sigaction Action = {};
@@ -21,6 +22,24 @@ static bool SigHandler(int SigNr, sighandler_t Handler){
 static void ShutdownHandler(int SigNr){
 	g_ShutdownSignal = SigNr;
 	//WakeConnections?
+}
+
+static bool init_query() {
+	ASSERT(query_client == nullptr);
+	query_client = new QueryClient();
+	if (!query_client->connect(g_config.query_manager_host,
+			g_config.query_manager_port, g_config.query_manager_password)) {
+		LOG_ERR("Failed to connect to query manager");
+		return false;
+	}
+	return true;
+}
+
+static void exit_query() {
+	if (query_client != nullptr) {
+		delete query_client;
+		query_client = nullptr;
+	}
 }
 
 int main(int argc, const char **argv){
@@ -82,9 +101,9 @@ int main(int argc, const char **argv){
 		}
 	}
 
-	atexit(ExitQuery);
+	atexit(exit_query);
 	atexit(ExitConnections);
-	if(!InitQuery() || !InitConnections()){
+	if(!init_query() || !InitConnections()){
 		return EXIT_FAILURE;
 	}
 

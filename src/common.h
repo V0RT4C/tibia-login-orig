@@ -30,14 +30,10 @@ extern ServerConfig g_config;
 #include "query/query_types.h"
 #include "query/query_client.h"
 
-// query.cpp
-//==============================================================================
-int LoginAccount(int account_id, const char* password, const char* ip_address,
-		int max_characters, int* num_characters, CharacterLoginData* characters,
-		int* premium_days);
-int GetWorld(const char* world_name, WorldInfo* out_world);
-bool InitQuery(void);
-void ExitQuery(void);
+#include "query/login_query.h"
+#include "query/world_query.h"
+
+extern QueryClient* query_client;
 
 // status.cc
 //==============================================================================
