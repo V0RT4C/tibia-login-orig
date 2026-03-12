@@ -1,4 +1,4 @@
-#include "common.hh"
+#include "common.h"
 
 #include <openssl/err.h>
 #include <openssl/rsa.h>

@@ -1,4 +1,4 @@
-#include "common.hh"
+#include "common.h"
 
 static int g_LastStatusRefresh;
 static char g_StatusString[KB(2)];

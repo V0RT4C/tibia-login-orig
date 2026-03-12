@@ -1,4 +1,4 @@
-#include "common.hh"
+#include "common.h"
 
 #include <errno.h>
 #include <signal.h>
@@ -468,7 +468,7 @@ bool ParseString(char *Dest, int DestCapacity, const char *String){
 }
 
 void ParseMotd(char *Dest, int DestCapacity, const char *String){
-	char *Motd = (char*)alloca(DestCapacity);
+	char Motd[256];
 	ParseString(Motd, DestCapacity, String);
 	if(Motd[0] != 0){
 		StringFormat(Dest, DestCapacity, "%u\n%s", StringHash(Motd), Motd);
@@ -619,7 +619,7 @@ static bool SigHandler(int SigNr, sighandler_t Handler){
 	sigfillset(&Action.sa_mask);
 	if(sigaction(SigNr, &Action, NULL) == -1){
 		LOG_ERR("Failed to change handler for signal %d (%s): (%d) %s",
-				SigNr, sigdescr_np(SigNr), errno, strerrordesc_np(errno));
+				SigNr, strsignal(SigNr), errno, strerror(errno));
 		return false;
 	}
 	return true;
@@ -701,7 +701,7 @@ int main(int argc, const char **argv){
 	}
 
 	LOG("Received signal %d (%s), shutting down...",
-			g_ShutdownSignal, sigdescr_np(g_ShutdownSignal));
+			g_ShutdownSignal, strsignal(g_ShutdownSignal));
 	return EXIT_SUCCESS;
 }
 

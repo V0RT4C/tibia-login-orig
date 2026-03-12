@@ -1,4 +1,4 @@
-#include "common.hh"
+#include "common.h"
 
 #include <errno.h>
 #include <netdb.h>
@@ -76,7 +76,7 @@ bool Connect(TQueryManagerConnection *Connection){
 
 	Connection->Socket = socket(AF_INET, SOCK_STREAM, 0);
 	if(Connection->Socket == -1){
-		LOG_ERR("Failed to create socket: (%d) %s", errno, strerrordesc_np(errno));
+		LOG_ERR("Failed to create socket: (%d) %s", errno, strerror(errno));
 		return false;
 	}
 
@@ -85,7 +85,7 @@ bool Connect(TQueryManagerConnection *Connection){
 	QueryManagerAddress.sin_port = htons((uint16)g_Config.QueryManagerPort);
 	QueryManagerAddress.sin_addr.s_addr = Addr;
 	if(connect(Connection->Socket, (sockaddr*)&QueryManagerAddress, sizeof(QueryManagerAddress)) == -1){
-		LOG_ERR("Failed to connect: (%d) %s", errno, strerrordesc_np(errno));
+		LOG_ERR("Failed to connect: (%d) %s", errno, strerror(errno));
 		Disconnect(Connection);
 		return false;
 	}

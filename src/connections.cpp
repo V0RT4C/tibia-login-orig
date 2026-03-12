@@ -1,6 +1,7 @@
-#include "common.hh"
+#include "common.h"
 
 #include <errno.h>
+#include <vector>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <poll.h>
@@ -27,26 +28,26 @@ static int g_MaxStatusRecords;
 static int ListenerBind(uint16 Port){
 	int Socket = socket(AF_INET, SOCK_STREAM, 0);
 	if(Socket == -1){
-		LOG_ERR("Failed to create listener socket: (%d) %s", errno, strerrordesc_np(errno));
+		LOG_ERR("Failed to create listener socket: (%d) %s", errno, strerror(errno));
 		return -1;
 	}
 
 	int ReuseAddr = 1;
 	if(setsockopt(Socket, SOL_SOCKET, SO_REUSEADDR, &ReuseAddr, sizeof(ReuseAddr)) == -1){
-		LOG_ERR("Failed to set SO_REUSADDR: (%d) %s", errno, strerrordesc_np(errno));
+		LOG_ERR("Failed to set SO_REUSADDR: (%d) %s", errno, strerror(errno));
 		close(Socket);
 		return -1;
 	}
 
 	int Flags = fcntl(Socket, F_GETFL);
 	if(Flags == -1){
-		LOG_ERR("Failed to get socket flags: (%d) %s", errno, strerrordesc_np(errno));
+		LOG_ERR("Failed to get socket flags: (%d) %s", errno, strerror(errno));
 		close(Socket);
 		return -1;
 	}
 
 	if(fcntl(Socket, F_SETFL, Flags | O_NONBLOCK) == -1){
-		LOG_ERR("Failed to set socket flags: (%d) %s", errno, strerrordesc_np(errno));
+		LOG_ERR("Failed to set socket flags: (%d) %s", errno, strerror(errno));
 		close(Socket);
 		return -1;
 	}
@@ -56,13 +57,13 @@ static int ListenerBind(uint16 Port){
 	Addr.sin_port = htons(Port);
 	Addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	if(bind(Socket, (sockaddr*)&Addr, sizeof(Addr)) == -1){
-		LOG_ERR("Failed to bind socket to port %d: (%d) %s", Port, errno, strerrordesc_np(errno));
+		LOG_ERR("Failed to bind socket to port %d: (%d) %s", Port, errno, strerror(errno));
 		close(Socket);
 		return -1;
 	}
 
 	if(listen(Socket, 128) == -1){
-		LOG_ERR("Failed to listen to port %d: (%d) %s", Port, errno, strerrordesc_np(errno));
+		LOG_ERR("Failed to listen to port %d: (%d) %s", Port, errno, strerror(errno));
 		close(Socket);
 		return -1;
 	}
@@ -77,20 +78,20 @@ static int ListenerAccept(int Listener, uint32 *OutAddr, uint16 *OutPort){
 		int Socket = accept(Listener, (sockaddr*)&SocketAddr, &SocketAddrLen);
 		if(Socket == -1){
 			if(errno != EAGAIN){
-				LOG_ERR("Failed to accept connection: (%d) %s", errno, strerrordesc_np(errno));
+				LOG_ERR("Failed to accept connection: (%d) %s", errno, strerror(errno));
 			}
 			return -1;
 		}
 
 		int Flags = fcntl(Socket, F_GETFL);
 		if(Flags == -1){
-			LOG_ERR("Failed to get socket flags: (%d) %s", errno, strerrordesc_np(errno));
+			LOG_ERR("Failed to get socket flags: (%d) %s", errno, strerror(errno));
 			close(Socket);
 			continue;
 		}
 
 		if(fcntl(Socket, F_SETFL, Flags | O_NONBLOCK) == -1){
-			LOG_ERR("Failed to set socket flags: (%d) %s", errno, strerrordesc_np(errno));
+			LOG_ERR("Failed to set socket flags: (%d) %s", errno, strerror(errno));
 			close(Socket);
 			continue;
 		}
@@ -309,8 +310,8 @@ static void AcceptConnections(int Events){
 void ProcessConnections(void){
 	int NumFds = 0;
 	int MaxFds = g_MaxConnections + 1;
-	pollfd *Fds = (pollfd*)alloca(MaxFds * sizeof(pollfd));
-	int *ConnectionIndices = (int*)alloca(MaxFds * sizeof(int));
+	std::vector<pollfd> Fds(MaxFds);
+	std::vector<int> ConnectionIndices(MaxFds);
 
 	if(g_Listener != -1){
 		Fds[NumFds].fd = g_Listener;
@@ -338,11 +339,11 @@ void ProcessConnections(void){
 	// NOTE(fusion): Block for 1 second at most, so we can properly timeout
 	// idle connections.
 	ASSERT(NumFds > 0);
-	int NumEvents = poll(Fds, NumFds, 1000);
+	int NumEvents = poll(Fds.data(), NumFds, 1000);
 	if(NumEvents == -1){
 		if(errno != ETIMEDOUT && errno != EINTR){
 			LOG_ERR("Failed to poll connections: (%d) %s",
-					errno, strerrordesc_np(errno));
+					errno, strerror(errno));
 		}
 		return;
 	}
