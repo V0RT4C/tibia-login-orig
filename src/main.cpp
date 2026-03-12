@@ -23,7 +23,7 @@ void LogAdd(const char *Prefix, const char *Format, ...){
 
 	if(Length > 0){
 		char TimeString[128];
-		StringBufFormatTime(TimeString, "%Y-%m-%d %H:%M:%S", (int)time(NULL));
+		string_buf_format_time(TimeString, "%Y-%m-%d %H:%M:%S", (int)time(NULL));
 		fprintf(stdout, "%s [%s] %s\n", TimeString, Prefix, Entry);
 		fflush(stdout);
 	}
@@ -48,7 +48,7 @@ void LogAddVerbose(const char *Prefix, const char *Function,
 		(void)File;
 		(void)Line;
 		char TimeString[128];
-		StringBufFormatTime(TimeString, "%Y-%m-%d %H:%M:%S", (int)time(NULL));
+		string_buf_format_time(TimeString, "%Y-%m-%d %H:%M:%S", (int)time(NULL));
 		fprintf(stdout, "%s [%s] %s: %s\n", TimeString, Prefix, Function, Entry);
 		fflush(stdout);
 	}
@@ -95,135 +95,15 @@ int GetMonotonicUptime(void){
 	return (int)((GetClockMonotonicMS() - g_StartTimeMS) / 1000);
 }
 
-bool StringEmpty(const char *String){
-	return String[0] == 0;
-}
-
-bool StringEq(const char *A, const char *B){
-	int Index = 0;
-	while(A[Index] != 0 && A[Index] == B[Index]){
-		Index += 1;
-	}
-	return A[Index] == B[Index];
-}
-
-bool StringEqCI(const char *A, const char *B){
-	int Index = 0;
-	while(A[Index] != 0 && tolower(A[Index]) == tolower(B[Index])){
-		Index += 1;
-	}
-	return tolower(A[Index]) == tolower(B[Index]);
-}
-
-bool StringCopy(char *Dest, int DestCapacity, const char *Src){
-	int SrcLength = (Src != NULL ? (int)strlen(Src) : 0);
-	return StringCopyN(Dest, DestCapacity, Src, SrcLength);
-}
-
-bool StringCopyN(char *Dest, int DestCapacity, const char *Src, int SrcLength){
-	ASSERT(DestCapacity > 0);
-	bool Result = (SrcLength < DestCapacity);
-	if(Result && SrcLength > 0){
-		memcpy(Dest, Src, SrcLength);
-		Dest[SrcLength] = 0;
-	}else{
-		Dest[0] = 0;
-	}
-	return Result;
-}
-
-bool StringFormat(char *Dest, int DestCapacity, const char *Format, ...){
-	va_list ap;
-	va_start(ap, Format);
-	int Written = vsnprintf(Dest, DestCapacity, Format, ap);
-	va_end(ap);
-	return Written >= 0 && Written < DestCapacity;
-}
-
-bool StringFormatTime(char *Dest, int DestCapacity, const char *Format, int Timestamp){
-	struct tm tm = GetLocalTime((time_t)Timestamp);
-	int Result = (int)strftime(Dest, DestCapacity, Format, &tm);
-
-	// NOTE(fusion): `strftime` will return ZERO if it's unable to fit the result
-	// in the supplied buffer, which is annoying because ZERO may not represent a
-	// failure if the result is an empty string.
-	ASSERT(Result >= 0 && Result < DestCapacity);
-	if(Result == 0){
-		memset(Dest, 0, DestCapacity);
-	}
-
-	return Result != 0;
-}
-
-void StringClear(char *Dest, int DestCapacity){
-	ASSERT(DestCapacity > 0);
-	memset(Dest, 0, DestCapacity);
-}
-
-uint32 StringHash(const char *String){
-	// FNV1a 32-bits
-	uint32 Hash = 0x811C9DC5U;
-	for(int i = 0; String[i] != 0; i += 1){
-		Hash ^= (uint32)String[i];
-		Hash *= 0x01000193U;
-	}
-	return Hash;
-}
-
-bool StringEscape(char *Dest, int DestCapacity, const char *Src){
-	int WritePos = 0;
-	for(int ReadPos = 0; Src[ReadPos] != 0 && WritePos < DestCapacity; ReadPos += 1){
-		int EscapeCh = -1;
-		switch(Src[ReadPos]){
-			case '\a': EscapeCh = 'a'; break;
-			case '\b': EscapeCh = 'b'; break;
-			case '\t': EscapeCh = 't'; break;
-			case '\n': EscapeCh = 'n'; break;
-			case '\v': EscapeCh = 'v'; break;
-			case '\f': EscapeCh = 'f'; break;
-			case '\r': EscapeCh = 'r'; break;
-			case '\"': EscapeCh = '\"'; break;
-			case '\'': EscapeCh = '\''; break;
-			case '\\': EscapeCh = '\\'; break;
-		}
-
-		if(EscapeCh != -1){
-			if((WritePos + 1) <= DestCapacity){
-				Dest[WritePos] = '\\';
-				WritePos += 1;
-			}
-
-			if((WritePos + 1) <= DestCapacity){
-				Dest[WritePos] = EscapeCh;
-				WritePos += 1;
-			}
-		}else{
-			if((WritePos + 1) <= DestCapacity){
-				Dest[WritePos] = Src[ReadPos];
-				WritePos += 1;
-			}
-		}
-	}
-
-	if(WritePos < DestCapacity){
-		Dest[WritePos] = 0;
-		return true;
-	}else{
-		Dest[DestCapacity - 1] = 0;
-		return false;
-	}
-}
-
-
 bool ParseBoolean(bool *Dest, const char *String){
 	ASSERT(Dest && String);
-	*Dest = StringEqCI(String, "true")
-			|| StringEqCI(String, "on")
-			|| StringEqCI(String, "yes");
+	*Dest = string_equals_ignore_case(String, "true")
+			|| string_equals_ignore_case(String, "on")
+			|| string_equals_ignore_case(String, "yes");
 	return *Dest
-			|| StringEqCI(String, "false")
-			|| StringEqCI(String, "off")
-			|| StringEqCI(String, "no");
+			|| string_equals_ignore_case(String, "false")
+			|| string_equals_ignore_case(String, "off")
+			|| string_equals_ignore_case(String, "no");
 }
 
 bool ParseInteger(int *Dest, const char *String){
@@ -290,7 +170,7 @@ bool ParseString(char *Dest, int DestCapacity, const char *String){
 		}
 	}
 
-	return StringCopyN(Dest, DestCapacity,
+	return string_copy_n(Dest, DestCapacity,
 			&String[StringStart], (StringEnd - StringStart));
 }
 
@@ -298,7 +178,7 @@ void ParseMotd(char *Dest, int DestCapacity, const char *String){
 	char Motd[256];
 	ParseString(Motd, DestCapacity, String);
 	if(Motd[0] != 0){
-		StringFormat(Dest, DestCapacity, "%u\n%s", StringHash(Motd), Motd);
+		string_format(Dest, DestCapacity, "%u\n%s", string_hash(Motd), Motd);
 	}
 }
 
@@ -388,48 +268,48 @@ bool ReadConfig(const char *FileName, TConfig *Config){
 
 		// NOTE(fusion): Parse KV pair.
 		char Key[256];
-		if(!StringBufCopyN(Key, &Line[KeyStart], (KeyEnd - KeyStart))){
+		if(!string_buf_copy_n(Key, &Line[KeyStart], (KeyEnd - KeyStart))){
 			LOG_WARN("%s:%d: Exceeded key size limit of %d characters",
 					FileName, LineNumber, (int)(sizeof(Key) - 1));
 			continue;
 		}
 
 		char Val[256];
-		if(!StringBufCopyN(Val, &Line[ValStart], (ValEnd - ValStart))){
+		if(!string_buf_copy_n(Val, &Line[ValStart], (ValEnd - ValStart))){
 			LOG_WARN("%s:%d: Exceeded value size limit of %d characters",
 					FileName, LineNumber, (int)(sizeof(Val) - 1));
 			continue;
 		}
 
-		if(StringEqCI(Key, "LoginPort")){
+		if(string_equals_ignore_case(Key, "LoginPort")){
 			ParseInteger(&Config->LoginPort, Val);
-		}else if(StringEqCI(Key, "ConnectionTimeout")){
+		}else if(string_equals_ignore_case(Key, "ConnectionTimeout")){
 			ParseDuration(&Config->ConnectionTimeout, Val);
-		}else if(StringEqCI(Key, "MaxConnections")){
+		}else if(string_equals_ignore_case(Key, "MaxConnections")){
 			ParseInteger(&Config->MaxConnections, Val);
-		}else if(StringEqCI(Key, "MaxStatusRecords")){
+		}else if(string_equals_ignore_case(Key, "MaxStatusRecords")){
 			ParseInteger(&Config->MaxStatusRecords, Val);
-		}else if(StringEqCI(Key, "MinStatusInterval")){
+		}else if(string_equals_ignore_case(Key, "MinStatusInterval")){
 			ParseDuration(&Config->MinStatusInterval, Val);
-		}else if(StringEqCI(Key, "QueryManagerHost")){
-			ParseStringBuf(Config->QueryManagerHost, Val);
-		}else if(StringEqCI(Key, "QueryManagerPort")){
+		}else if(string_equals_ignore_case(Key, "QueryManagerHost")){
+			parse_string_buf(Config->QueryManagerHost, Val);
+		}else if(string_equals_ignore_case(Key, "QueryManagerPort")){
 			ParseInteger(&Config->QueryManagerPort, Val);
-		}else if(StringEqCI(Key, "QueryManagerPassword")){
-			ParseStringBuf(Config->QueryManagerPassword, Val);
-		}else if(StringEqCI(Key, "StatusWorld")){
-			ParseStringBuf(Config->StatusWorld, Val);
-		}else if(StringEqCI(Key, "URL")){
-			ParseStringBuf(Config->Url, Val);
-		}else if(StringEqCI(Key, "Location")){
-			ParseStringBuf(Config->Location, Val);
-		}else if(StringEqCI(Key, "ServerType")){
-			ParseStringBuf(Config->ServerType, Val);
-		}else if(StringEqCI(Key, "ServerVersion")){
-			ParseStringBuf(Config->ServerVersion, Val);
-		}else if(StringEqCI(Key, "ClientVersion")){
-			ParseStringBuf(Config->ClientVersion, Val);
-		}else if(StringEqCI(Key, "MOTD")){
+		}else if(string_equals_ignore_case(Key, "QueryManagerPassword")){
+			parse_string_buf(Config->QueryManagerPassword, Val);
+		}else if(string_equals_ignore_case(Key, "StatusWorld")){
+			parse_string_buf(Config->StatusWorld, Val);
+		}else if(string_equals_ignore_case(Key, "URL")){
+			parse_string_buf(Config->Url, Val);
+		}else if(string_equals_ignore_case(Key, "Location")){
+			parse_string_buf(Config->Location, Val);
+		}else if(string_equals_ignore_case(Key, "ServerType")){
+			parse_string_buf(Config->ServerType, Val);
+		}else if(string_equals_ignore_case(Key, "ServerVersion")){
+			parse_string_buf(Config->ServerVersion, Val);
+		}else if(string_equals_ignore_case(Key, "ClientVersion")){
+			parse_string_buf(Config->ClientVersion, Val);
+		}else if(string_equals_ignore_case(Key, "MOTD")){
 			ParseMotd(Config->Motd, sizeof(Config->Motd), Val);
 		}else{
 			LOG_WARN("Unknown config \"%s\"", Key);
@@ -475,18 +355,18 @@ int main(int argc, const char **argv){
 	g_Config.MaxConnections    = 10;
 	g_Config.MaxStatusRecords  = 1024;
 	g_Config.MinStatusInterval = 300; // seconds
-	StringBufCopy(g_Config.QueryManagerHost, "127.0.0.1");
+	string_buf_copy(g_Config.QueryManagerHost, "127.0.0.1");
 	g_Config.QueryManagerPort  = 7173;
-	StringBufCopy(g_Config.QueryManagerPassword, "");
+	string_buf_copy(g_Config.QueryManagerPassword, "");
 
 	// Service Info
-	StringBufCopy(g_Config.StatusWorld,   "");
-	StringBufCopy(g_Config.Url,           "");
-	StringBufCopy(g_Config.Location,      "");
-	StringBufCopy(g_Config.ServerType,    "");
-	StringBufCopy(g_Config.ServerVersion, "");
-	StringBufCopy(g_Config.ClientVersion, "");
-	StringBufCopy(g_Config.Motd,          "");
+	string_buf_copy(g_Config.StatusWorld,   "");
+	string_buf_copy(g_Config.Url,           "");
+	string_buf_copy(g_Config.Location,      "");
+	string_buf_copy(g_Config.ServerType,    "");
+	string_buf_copy(g_Config.ServerVersion, "");
+	string_buf_copy(g_Config.ClientVersion, "");
+	string_buf_copy(g_Config.Motd,          "");
 
 	LOG("Tibia Login v0.2");
 	if(!ReadConfig("config.cfg", &g_Config)){
@@ -509,7 +389,7 @@ int main(int argc, const char **argv){
 
 	{	// NOTE(fusion): Print MOTD preview with escape codes.
 		char MotdPreview[30];
-		if(StringBufEscape(MotdPreview, g_Config.Motd)){
+		if(string_buf_escape(MotdPreview, g_Config.Motd)){
 			LOG("MOTD:                \"%s\"", MotdPreview);
 		}else{
 			LOG("MOTD:                \"%s...\"", MotdPreview);

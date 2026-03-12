@@ -3,6 +3,7 @@
 
 #include "common/types.h"
 #include "common/assert.h"
+#include "common/string_utils.h"
 
 #include <ctype.h>
 #include <stdarg.h>
@@ -12,8 +13,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
-#define ISPOW2(x) ((x) != 0 && ((x) & ((x) - 1)) == 0)
 
 #define LOG(...)		LogAdd("INFO", __VA_ARGS__)
 #define LOG_WARN(...)	LogAddVerbose("WARN", __FUNCTION__, __FILE__, __LINE__, __VA_ARGS__)
@@ -56,18 +55,6 @@ struct tm GetGMTime(time_t t);
 int64 GetClockMonotonicMS(void);
 int GetMonotonicUptime(void);
 
-bool StringEmpty(const char *String);
-bool StringEq(const char *A, const char *B);
-bool StringEqCI(const char *A, const char *B);
-bool StringCopy(char *Dest, int DestCapacity, const char *Src);
-bool StringCopyN(char *Dest, int DestCapacity, const char *Src, int SrcLength);
-bool StringFormat(char *Dest, int DestCapacity, const char *Format, ...) ATTR_PRINTF(3, 4);
-bool StringFormatTime(char *Dest, int DestCapacity, const char *Format, int Timestamp);
-void StringClear(char *Dest, int DestCapacity);
-uint32 StringHash(const char *String);
-bool StringEscape(char *Dest, int DestCapacity, const char *Src);
-
-
 bool ParseBoolean(bool *Dest, const char *String);
 bool ParseInteger(int *Dest, const char *String);
 bool ParseDuration(int *Dest, const char *String);
@@ -76,17 +63,7 @@ bool ParseString(char *Dest, int DestCapacity, const char *String);
 void ParseMotd(char *Dest, int DestCapacity, const char *String);
 bool ReadConfig(const char *FileName, TConfig *Config);
 
-// IMPORTANT(fusion): These macros should only be used when `Dest` is a char array
-// to simplify the call to `StringCopy` where we'd use `sizeof(Dest)` to determine
-// the size of the destination anyways.
-#define StringBufCopy(Dest, Src)             StringCopy(Dest, sizeof(Dest), Src)
-#define StringBufCopyN(Dest, Src, SrcLength) StringCopyN(Dest, sizeof(Dest), Src, SrcLength)
-#define StringBufFormat(Dest, ...)           StringFormat(Dest, sizeof(Dest), __VA_ARGS__)
-#define StringBufFormatTime(Dest, Format, Timestamp) \
-		StringFormatTime(Dest, sizeof(Dest), Format, Timestamp)
-#define StringBufClear(Dest)                 StringClear(Dest, sizeof(Dest));
-#define StringBufEscape(Dest, Src)           StringEscape(Dest, sizeof(Dest), Src)
-#define ParseStringBuf(Dest, String)         ParseString(Dest, sizeof(Dest), String)
+#define parse_string_buf(dest, str) ParseString(dest, sizeof(dest), str)
 
 #include "common/byte_order.h"
 #include "common/utf8.h"

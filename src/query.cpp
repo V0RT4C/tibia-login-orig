@@ -264,12 +264,12 @@ int GetWorld(const char *WorldName, TWorld *OutWorld){
 			World.LastStartup = (int)ReadBuffer.read_u32();
 			World.LastShutdown = (int)ReadBuffer.read_u32();
 
-			if(StringEmpty(WorldName)){
+			if(string_empty(WorldName)){
 				// NOTE(fusion): Pick the world with the most players.
 				if(i == 0 || World.NumPlayers > OutWorld->NumPlayers){
 					*OutWorld = World;
 				}
-			}else if(StringEqCI(WorldName, World.Name)){
+			}else if(string_equals_ignore_case(WorldName, World.Name)){
 				*OutWorld = World;
 				break;
 			}

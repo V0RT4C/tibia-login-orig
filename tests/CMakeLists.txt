@@ -22,3 +22,8 @@ add_executable(test_buffer_writer test_buffer_writer.cpp
 target_include_directories(test_buffer_writer PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_compile_features(test_buffer_writer PRIVATE cxx_std_17)
 add_test(NAME test_buffer_writer COMMAND test_buffer_writer)
+
+add_executable(test_string_utils test_string_utils.cpp ../src/common/string_utils.cpp)
+target_include_directories(test_string_utils PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_compile_features(test_string_utils PRIVATE cxx_std_17)
+add_test(NAME test_string_utils COMMAND test_string_utils)

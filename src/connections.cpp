@@ -133,7 +133,7 @@ static TConnection *AssignConnection(int Socket, uint32 Addr, uint16 Port){
 		Connection->IPAddress = (int)Addr;
 		Connection->StartTime = GetMonotonicUptime();
 		Connection->RandomSeed = (uint32)rand();
-		StringBufFormat(Connection->RemoteAddress,
+		string_buf_format(Connection->RemoteAddress,
 				"%d.%d.%d.%d:%d",
 				((Connection->IPAddress >> 24) & 0xFF),
 				((Connection->IPAddress >> 16) & 0xFF),
@@ -575,7 +575,7 @@ void ProcessLoginRequest(TConnection *Connection){
 	}
 
 	char IPString[16];
-	StringBufFormat(IPString, "%d.%d.%d.%d",
+	string_buf_format(IPString, "%d.%d.%d.%d",
 			((Connection->IPAddress >> 24) & 0xFF),
 			((Connection->IPAddress >> 16) & 0xFF),
 			((Connection->IPAddress >>  8) & 0xFF),
@@ -693,7 +693,7 @@ void ProcessStatusRequest(TConnection *Connection){
 	if(Format == 255){ // XML
 		char Request[5] = {};
 		ReadBuffer.read_bytes((uint8*)Request, 4);
-		if(StringEqCI(Request, "info")){
+		if(string_equals_ignore_case(Request, "info")){
 			const char *StatusString = GetStatusString();
 			SendStatusString(Connection, StatusString);
 		}else{
