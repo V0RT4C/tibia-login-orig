@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <iterator>
+#include <memory>
 #include <vector>
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -15,7 +16,7 @@ static const int TERMINALVERSION[] = {772, 772, 772};
 static const int TERMINALVERSION[] = {770, 770, 770};
 #endif
 
-static RSAKey *g_PrivateKey;
+static std::unique_ptr<RsaKey> g_PrivateKey;
 
 static int g_Listener = -1;
 static TConnection *g_Connections;
@@ -368,13 +369,13 @@ void ProcessConnections(void){
 }
 
 bool InitConnections(void){
-	ASSERT(g_PrivateKey == NULL);
+	ASSERT(g_PrivateKey == nullptr);
 	ASSERT(g_Listener == -1);
 	ASSERT(g_Connections == NULL);
 	ASSERT(g_StatusRecords == NULL);
 
-	g_PrivateKey = RSALoadPEM("tibia.pem");
-	if(g_PrivateKey == NULL){
+	g_PrivateKey = RsaKey::from_pem_file("tibia.pem");
+	if(g_PrivateKey == nullptr){
 		LOG_ERR("Failed to load RSA key");
 		return false;
 	}
@@ -400,10 +401,7 @@ bool InitConnections(void){
 }
 
 void ExitConnections(void){
-	if(g_PrivateKey != NULL){
-		RSAFree(g_PrivateKey);
-		g_PrivateKey = NULL;
-	}
+	g_PrivateKey.reset();
 
 	if(g_Listener != -1){
 		close(g_Listener);
@@ -538,7 +536,7 @@ void ProcessLoginRequest(TConnection *Connection){
 	// IMPORTANT(fusion): Without a checksum, there is no way of validating
 	// the asymmetric data. The best we can do is to verify that the first
 	// plaintext byte is ZERO, but that alone isn't enough.
-	if(!RSADecrypt(g_PrivateKey, AsymmetricData, sizeof(AsymmetricData)) || AsymmetricData[0] != 0){
+	if(!g_PrivateKey->decrypt(AsymmetricData, sizeof(AsymmetricData)) || AsymmetricData[0] != 0){
 		LOG_ERR("Failed to decrypt asymmetric data from %s",
 				Connection->RemoteAddress);
 		CloseConnection(Connection);

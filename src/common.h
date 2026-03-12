@@ -24,13 +24,7 @@ extern ServerConfig g_config;
 #include "common/buffer_reader.h"
 #include "common/buffer_writer.h"
 
-// crypto.cc
-//==============================================================================
-typedef void RSAKey;
-RSAKey *RSALoadPEM(const char *FileName);
-void RSAFree(RSAKey *Key);
-bool RSADecrypt(RSAKey *Key, uint8 *Data, int Size);
-
+#include "crypto/rsa.h"
 #include "crypto/xtea.h"
 
 // query.cc

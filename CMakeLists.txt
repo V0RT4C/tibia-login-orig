@@ -15,8 +15,8 @@ set(SOURCES
     src/connections.cpp
     src/query.cpp
     src/status.cpp
-    src/crypto.cpp
     src/crypto/xtea.cpp
+    src/crypto/rsa.cpp
     src/config/config.cpp
     src/common/logging.cpp
     src/common/string_utils.cpp
@@ -38,7 +38,7 @@ target_compile_options(login PRIVATE
 )
 
 # Suppress OpenSSL deprecated API warnings for the RSA compilation unit only
-set_source_files_properties(src/crypto.cpp PROPERTIES COMPILE_FLAGS "-Wno-deprecated-declarations")
+set_source_files_properties(src/crypto/rsa.cpp PROPERTIES COMPILE_FLAGS "-Wno-deprecated-declarations")
 
 target_compile_definitions(login PRIVATE
     $<$<BOOL:${ENABLE_ASSERTIONS}>:ENABLE_ASSERTIONS=1>
