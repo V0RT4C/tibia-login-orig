@@ -91,9 +91,9 @@ bool Connect(TQueryManagerConnection *Connection){
 	}
 
 	uint8 LoginBuffer[1024];
-	TWriteBuffer WriteBuffer = PrepareQuery(QUERY_LOGIN, LoginBuffer, sizeof(LoginBuffer));
-	WriteBuffer.Write8((uint8)APPLICATION_TYPE_LOGIN);
-	WriteBuffer.WriteString(g_Config.QueryManagerPassword);
+	BufferWriter WriteBuffer = PrepareQuery(QUERY_LOGIN, LoginBuffer, sizeof(LoginBuffer));
+	WriteBuffer.write_u8((uint8)APPLICATION_TYPE_LOGIN);
+	WriteBuffer.write_string(g_Config.QueryManagerPassword);
 	int Status = ExecuteQuery(Connection, false, &WriteBuffer, NULL);
 	if(Status != QUERY_STATUS_OK){
 		LOG_ERR("Failed to login to query manager (%d)", Status);
@@ -115,38 +115,38 @@ bool IsConnected(TQueryManagerConnection *Connection){
 	return Connection->Socket != -1;
 }
 
-TWriteBuffer PrepareQuery(int QueryType, uint8 *Buffer, int BufferSize){
-	TWriteBuffer WriteBuffer(Buffer, BufferSize);
-	WriteBuffer.Write16(0); // Request Size
-	WriteBuffer.Write8((uint8)QueryType);
+BufferWriter PrepareQuery(int QueryType, uint8 *Buffer, int BufferSize){
+	BufferWriter WriteBuffer(Buffer, BufferSize);
+	WriteBuffer.write_u16(0); // Request Size
+	WriteBuffer.write_u8((uint8)QueryType);
 	return WriteBuffer;
 }
 
 int ExecuteQuery(TQueryManagerConnection *Connection, bool AutoReconnect,
-		TWriteBuffer *WriteBuffer, TReadBuffer *OutReadBuffer){
+		BufferWriter *WriteBuffer, BufferReader *OutReadBuffer){
 	// IMPORTANT(fusion): This is similar to the Go version where there is no
 	// connection buffer, and the response is read into the same buffer used
 	// by `WriteBuffer. This helps prevent allocating and moving data around
 	// when reconnecting in the middle of a query.
-	ASSERT(WriteBuffer != NULL && WriteBuffer->Position > 2);
+	ASSERT(WriteBuffer != NULL && WriteBuffer->position > 2);
 
-	int RequestSize = WriteBuffer->Position - 2;
+	int RequestSize = WriteBuffer->position - 2;
 	if(RequestSize < 0xFFFF){
-		WriteBuffer->Rewrite16(0, (uint16)RequestSize);
+		WriteBuffer->rewrite_u16(0, (uint16)RequestSize);
 	}else{
-		WriteBuffer->Rewrite16(0, 0xFFFF);
-		WriteBuffer->Insert32(2, (uint32)RequestSize);
+		WriteBuffer->rewrite_u16(0, 0xFFFF);
+		WriteBuffer->insert_u32(2, (uint32)RequestSize);
 	}
 
-	if(WriteBuffer->Overflowed()){
+	if(WriteBuffer->overflowed()){
 		LOG_ERR("Write buffer overflowed when writing request");
 		return QUERY_STATUS_FAILED;
 	}
 
 	const int MaxAttempts = 2;
-	uint8 *Buffer = WriteBuffer->Buffer;
-	int BufferSize = WriteBuffer->Size;
-	int WriteSize = WriteBuffer->Position;
+	uint8 *Buffer = WriteBuffer->buffer;
+	int BufferSize = WriteBuffer->size;
+	int WriteSize = WriteBuffer->position;
 	for(int Attempt = 1; true; Attempt += 1){
 		if(!IsConnected(Connection) && (!AutoReconnect || !Connect(Connection))){
 			return QUERY_STATUS_FAILED;
@@ -194,8 +194,8 @@ int ExecuteQuery(TQueryManagerConnection *Connection, bool AutoReconnect,
 			return QUERY_STATUS_FAILED;
 		}
 
-		TReadBuffer ReadBuffer(Buffer, ResponseSize);
-		int Status = ReadBuffer.Read8();
+		BufferReader ReadBuffer(Buffer, ResponseSize);
+		int Status = ReadBuffer.read_u8();
 		if(OutReadBuffer){
 			*OutReadBuffer = ReadBuffer;
 		}
@@ -207,31 +207,31 @@ int LoginAccount(int AccountID, const char *Password, const char *IPAddress,
 		int MaxCharacters, int *NumCharacters, TCharacterLoginData *Characters,
 		int *PremiumDays){
 	uint8 Buffer[kb(4)];
-	TWriteBuffer WriteBuffer = PrepareQuery(QUERY_LOGIN_ACCOUNT, Buffer, sizeof(Buffer));
-	WriteBuffer.Write32((uint32)AccountID);
-	WriteBuffer.WriteString(Password);
-	WriteBuffer.WriteString(IPAddress);
+	BufferWriter WriteBuffer = PrepareQuery(QUERY_LOGIN_ACCOUNT, Buffer, sizeof(Buffer));
+	WriteBuffer.write_u32((uint32)AccountID);
+	WriteBuffer.write_string(Password);
+	WriteBuffer.write_string(IPAddress);
 
-	TReadBuffer ReadBuffer;
+	BufferReader ReadBuffer;
 	int Status = ExecuteQuery(g_QueryManagerConnection, true, &WriteBuffer, &ReadBuffer);
 	int Result = (Status == QUERY_STATUS_OK ? 0 : -1);
 	if(Status == QUERY_STATUS_OK){
-		*NumCharacters = ReadBuffer.Read8();
+		*NumCharacters = ReadBuffer.read_u8();
 		if(*NumCharacters > MaxCharacters){
 			LOG_ERR("Too many characters");
 			return -1;
 		}
 
 		for(int i = 0; i < *NumCharacters; i += 1){
-			ReadBuffer.ReadString(Characters[i].Name, sizeof(Characters[i].Name));
-			ReadBuffer.ReadString(Characters[i].WorldName, sizeof(Characters[i].WorldName));
-			Characters[i].WorldAddress = ReadBuffer.Read32BE();
-			Characters[i].WorldPort = ReadBuffer.Read16();
+			ReadBuffer.read_string(Characters[i].Name, sizeof(Characters[i].Name));
+			ReadBuffer.read_string(Characters[i].WorldName, sizeof(Characters[i].WorldName));
+			Characters[i].WorldAddress = ReadBuffer.read_u32_be();
+			Characters[i].WorldPort = ReadBuffer.read_u16();
 		}
 
-		*PremiumDays = ReadBuffer.Read16();
+		*PremiumDays = ReadBuffer.read_u16();
 	}else if(Status == QUERY_STATUS_ERROR){
-		int ErrorCode = ReadBuffer.Read8();
+		int ErrorCode = ReadBuffer.read_u8();
 		if(ErrorCode >= 1 && ErrorCode <= 6){
 			Result = ErrorCode;
 		}else{
@@ -246,23 +246,23 @@ int LoginAccount(int AccountID, const char *Password, const char *IPAddress,
 int GetWorld(const char *WorldName, TWorld *OutWorld){
 	ASSERT(WorldName && OutWorld);
 	uint8 Buffer[4096];
-	TReadBuffer ReadBuffer;
-	TWriteBuffer WriteBuffer = PrepareQuery(QUERY_GET_WORLDS, Buffer, sizeof(Buffer));
+	BufferReader ReadBuffer;
+	BufferWriter WriteBuffer = PrepareQuery(QUERY_GET_WORLDS, Buffer, sizeof(Buffer));
 	int Status = ExecuteQuery(g_QueryManagerConnection, true, &WriteBuffer, &ReadBuffer);
 	int Result = (Status == QUERY_STATUS_OK ? 0 : -1);
 	memset(OutWorld, 0, sizeof(TWorld));
 	if(Status == QUERY_STATUS_OK){
-		int NumWorlds = (int)ReadBuffer.Read8();
+		int NumWorlds = (int)ReadBuffer.read_u8();
 		for(int i = 0; i < NumWorlds; i += 1){
 			TWorld World = {};
-			ReadBuffer.ReadString(World.Name, sizeof(World.Name));
-			World.Type = (int)ReadBuffer.Read8();
-			World.NumPlayers = (int)ReadBuffer.Read16();
-			World.MaxPlayers = (int)ReadBuffer.Read16();
-			World.OnlinePeak = (int)ReadBuffer.Read16();
-			World.OnlinePeakTimestamp = (int)ReadBuffer.Read32();
-			World.LastStartup = (int)ReadBuffer.Read32();
-			World.LastShutdown = (int)ReadBuffer.Read32();
+			ReadBuffer.read_string(World.Name, sizeof(World.Name));
+			World.Type = (int)ReadBuffer.read_u8();
+			World.NumPlayers = (int)ReadBuffer.read_u16();
+			World.MaxPlayers = (int)ReadBuffer.read_u16();
+			World.OnlinePeak = (int)ReadBuffer.read_u16();
+			World.OnlinePeakTimestamp = (int)ReadBuffer.read_u32();
+			World.LastStartup = (int)ReadBuffer.read_u32();
+			World.LastShutdown = (int)ReadBuffer.read_u32();
 
 			if(StringEmpty(WorldName)){
 				// NOTE(fusion): Pick the world with the most players.

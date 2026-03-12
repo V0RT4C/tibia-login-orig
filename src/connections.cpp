@@ -427,21 +427,21 @@ void ExitConnections(void){
 
 // Login Request
 //==============================================================================
-static TWriteBuffer PrepareXTEAResponse(TConnection *Connection){
+static BufferWriter PrepareXTEAResponse(TConnection *Connection){
 	if(Connection->State != CONNECTION_PROCESSING){
 		LOG_ERR("Connection %s is not PROCESSING (State: %d)",
 				Connection->RemoteAddress, Connection->State);
 		CloseConnection(Connection);
-		return TWriteBuffer(NULL, 0);
+		return BufferWriter(NULL, 0);
 	}
 
-	TWriteBuffer WriteBuffer(Connection->Buffer, sizeof(Connection->Buffer));
-	WriteBuffer.Write16(0); // Encrypted Size
-	WriteBuffer.Write16(0); // Data Size
+	BufferWriter WriteBuffer(Connection->Buffer, sizeof(Connection->Buffer));
+	WriteBuffer.write_u16(0); // Encrypted Size
+	WriteBuffer.write_u16(0); // Data Size
 	return WriteBuffer;
 }
 
-static void SendXTEAResponse(TConnection *Connection, TWriteBuffer *WriteBuffer){
+static void SendXTEAResponse(TConnection *Connection, BufferWriter *WriteBuffer){
 	if(Connection->State != CONNECTION_PROCESSING){
 		LOG_ERR("Connection %s is not PROCESSING (State: %d)",
 				Connection->RemoteAddress, Connection->State);
@@ -450,62 +450,62 @@ static void SendXTEAResponse(TConnection *Connection, TWriteBuffer *WriteBuffer)
 	}
 
 	ASSERT(WriteBuffer != NULL
-		&& WriteBuffer->Buffer == Connection->Buffer
-		&& WriteBuffer->Size == sizeof(Connection->Buffer)
-		&& WriteBuffer->Position > 4);
+		&& WriteBuffer->buffer == Connection->Buffer
+		&& WriteBuffer->size == sizeof(Connection->Buffer)
+		&& WriteBuffer->position > 4);
 
-	int DataSize = WriteBuffer->Position - 4;
-	int EncryptedSize = WriteBuffer->Position - 2;
+	int DataSize = WriteBuffer->position - 4;
+	int EncryptedSize = WriteBuffer->position - 2;
 	while((EncryptedSize % 8) != 0){
-		WriteBuffer->Write8(rand_r(&Connection->RandomSeed));
+		WriteBuffer->write_u8(rand_r(&Connection->RandomSeed));
 		EncryptedSize += 1;
 	}
 
-	if(WriteBuffer->Overflowed()){
+	if(WriteBuffer->overflowed()){
 		LOG_ERR("Write buffer overflowed when writing response to %s",
 				Connection->RemoteAddress);
 		CloseConnection(Connection);
 		return;
 	}
 
-	WriteBuffer->Rewrite16(0, EncryptedSize);
-	WriteBuffer->Rewrite16(2, DataSize);
+	WriteBuffer->rewrite_u16(0, EncryptedSize);
+	WriteBuffer->rewrite_u16(2, DataSize);
 	XTEAEncrypt(Connection->XTEA,
-			WriteBuffer->Buffer + 2,
-			WriteBuffer->Position - 2);
+			WriteBuffer->buffer + 2,
+			WriteBuffer->position - 2);
 	Connection->State = CONNECTION_WRITING;
-	Connection->RWSize = WriteBuffer->Position;
+	Connection->RWSize = WriteBuffer->position;
 	Connection->RWPosition = 0;
 }
 
 static void SendLoginError(TConnection *Connection, const char *Message){
-	TWriteBuffer WriteBuffer = PrepareXTEAResponse(Connection);
-	WriteBuffer.Write8(10); // LOGIN_ERROR
-	WriteBuffer.WriteString(Message);
+	BufferWriter WriteBuffer = PrepareXTEAResponse(Connection);
+	WriteBuffer.write_u8(10); // LOGIN_ERROR
+	WriteBuffer.write_string(Message);
 	SendXTEAResponse(Connection, &WriteBuffer);
 }
 
 static void SendCharacterList(TConnection *Connection, int NumCharacters,
 		TCharacterLoginData *Characters, int PremiumDays){
-	TWriteBuffer WriteBuffer = PrepareXTEAResponse(Connection);
+	BufferWriter WriteBuffer = PrepareXTEAResponse(Connection);
 
 	if(g_Config.Motd[0] != 0){
-		WriteBuffer.Write8(20); // MOTD
-		WriteBuffer.WriteString(g_Config.Motd);
+		WriteBuffer.write_u8(20); // MOTD
+		WriteBuffer.write_string(g_Config.Motd);
 	}
 
-	WriteBuffer.Write8(100); // CHARACTER_LIST
+	WriteBuffer.write_u8(100); // CHARACTER_LIST
 	if(NumCharacters > UINT8_MAX){
 		NumCharacters = UINT8_MAX;
 	}
-	WriteBuffer.Write8(NumCharacters);
+	WriteBuffer.write_u8(NumCharacters);
 	for(int i = 0; i < NumCharacters; i += 1){
-		WriteBuffer.WriteString(Characters[i].Name);
-		WriteBuffer.WriteString(Characters[i].WorldName);
-		WriteBuffer.Write32BE((uint32)Characters[i].WorldAddress);
-		WriteBuffer.Write16((uint16)Characters[i].WorldPort);
+		WriteBuffer.write_string(Characters[i].Name);
+		WriteBuffer.write_string(Characters[i].WorldName);
+		WriteBuffer.write_u32_be((uint32)Characters[i].WorldAddress);
+		WriteBuffer.write_u16((uint16)Characters[i].WorldPort);
 	}
-	WriteBuffer.Write16((uint16)PremiumDays);
+	WriteBuffer.write_u16((uint16)PremiumDays);
 
 	SendXTEAResponse(Connection, &WriteBuffer);
 }
@@ -518,17 +518,17 @@ void ProcessLoginRequest(TConnection *Connection){
 		return;
 	}
 
-	TReadBuffer ReadBuffer(Connection->Buffer, Connection->RWSize);
-	ReadBuffer.Read8(); // always 1 for a login request
-	ReadBuffer.Read16(); // TerminalType (OS)
-	int TerminalVersion = ReadBuffer.Read16();
-	ReadBuffer.Read32(); // DATSIGNATURE
-	ReadBuffer.Read32(); // SPRSIGNATURE
-	ReadBuffer.Read32(); // PICSIGNATURE
+	BufferReader ReadBuffer(Connection->Buffer, Connection->RWSize);
+	ReadBuffer.read_u8(); // always 1 for a login request
+	ReadBuffer.read_u16(); // TerminalType (OS)
+	int TerminalVersion = ReadBuffer.read_u16();
+	ReadBuffer.read_u32(); // DATSIGNATURE
+	ReadBuffer.read_u32(); // SPRSIGNATURE
+	ReadBuffer.read_u32(); // PICSIGNATURE
 
 	uint8 AsymmetricData[128];
-	ReadBuffer.ReadBytes(AsymmetricData, sizeof(AsymmetricData));
-	if(ReadBuffer.Overflowed()){
+	ReadBuffer.read_bytes(AsymmetricData, sizeof(AsymmetricData));
+	if(ReadBuffer.overflowed()){
 		LOG_ERR("Input buffer overflowed while reading login command from %s",
 				Connection->RemoteAddress);
 		CloseConnection(Connection);
@@ -545,17 +545,17 @@ void ProcessLoginRequest(TConnection *Connection){
 		return;
 	}
 
-	ReadBuffer = TReadBuffer(AsymmetricData, sizeof(AsymmetricData));
-	ReadBuffer.Read8(); // always zero
-	Connection->XTEA[0] = ReadBuffer.Read32();
-	Connection->XTEA[1] = ReadBuffer.Read32();
-	Connection->XTEA[2] = ReadBuffer.Read32();
-	Connection->XTEA[3] = ReadBuffer.Read32();
+	ReadBuffer = BufferReader(AsymmetricData, sizeof(AsymmetricData));
+	ReadBuffer.read_u8(); // always zero
+	Connection->XTEA[0] = ReadBuffer.read_u32();
+	Connection->XTEA[1] = ReadBuffer.read_u32();
+	Connection->XTEA[2] = ReadBuffer.read_u32();
+	Connection->XTEA[3] = ReadBuffer.read_u32();
 
 	char Password[30];
-	int AccountID = ReadBuffer.Read32();
-	ReadBuffer.ReadString(Password, sizeof(Password));
-	if(ReadBuffer.Overflowed()){
+	int AccountID = ReadBuffer.read_u32();
+	ReadBuffer.read_string(Password, sizeof(Password));
+	if(ReadBuffer.overflowed()){
 		LOG_ERR("Malformed asymmetric data from %s", Connection->RemoteAddress);
 		CloseConnection(Connection);
 		return;
@@ -687,12 +687,12 @@ void ProcessStatusRequest(TConnection *Connection){
 		return;
 	}
 
-	TReadBuffer ReadBuffer(Connection->Buffer, Connection->RWSize);
-	ReadBuffer.Read8(); // always 255 for a status request
-	int Format = (int)ReadBuffer.Read8();
+	BufferReader ReadBuffer(Connection->Buffer, Connection->RWSize);
+	ReadBuffer.read_u8(); // always 255 for a status request
+	int Format = (int)ReadBuffer.read_u8();
 	if(Format == 255){ // XML
 		char Request[5] = {};
-		ReadBuffer.ReadBytes((uint8*)Request, 4);
+		ReadBuffer.read_bytes((uint8*)Request, 4);
 		if(StringEqCI(Request, "info")){
 			const char *StatusString = GetStatusString();
 			SendStatusString(Connection, StatusString);

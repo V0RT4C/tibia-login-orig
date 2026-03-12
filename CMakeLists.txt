@@ -17,6 +17,8 @@ set(SOURCES
     src/status.cpp
     src/crypto.cpp
     src/common/utf8.cpp
+    src/common/buffer_reader.cpp
+    src/common/buffer_writer.cpp
 )
 
 add_executable(login ${SOURCES})
