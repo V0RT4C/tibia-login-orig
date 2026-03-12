@@ -1,6 +1,9 @@
 #ifndef TIBIA_COMMON_H_
 #define TIBIA_COMMON_H_ 1
 
+#include "common/types.h"
+#include "common/assert.h"
+
 #include <ctype.h>
 #include <stdarg.h>
 #include <stddef.h>
@@ -10,55 +13,7 @@
 #include <string.h>
 #include <time.h>
 
-typedef uint8_t uint8;
-typedef uint16_t uint16;
-typedef uint32_t uint32;
-typedef int64_t int64;
-typedef uint64_t uint64;
-
-#define STATIC_ASSERT(expr) static_assert((expr), "static assertion failed: " #expr)
-#define NARRAY(arr) (int)(sizeof(arr) / sizeof(arr[0]))
 #define ISPOW2(x) ((x) != 0 && ((x) & ((x) - 1)) == 0)
-#define KB(x) ((x) * 1024)
-
-#if defined(_WIN32)
-#	define OS_WINDOWS 1
-#elif defined(__linux__) || defined(__gnu_linux__)
-#	define OS_LINUX 1
-#else
-#	error "Operating system not supported."
-#endif
-
-#if defined(_MSC_VER)
-#	define COMPILER_MSVC 1
-#elif defined(__GNUC__)
-#	define COMPILER_GCC 1
-#elif defined(__clang__)
-#	define COMPILER_CLANG 1
-#endif
-
-#if COMPILER_GCC || COMPILER_CLANG
-#	define ATTR_FALLTHROUGH __attribute__((fallthrough))
-#	define ATTR_PRINTF(x, y) __attribute__((format(printf, x, y)))
-#else
-#	define ATTR_FALLTHROUGH
-#	define ATTR_PRINTF(x, y)
-#endif
-
-#if COMPILER_MSVC
-#	define TRAP() __debugbreak()
-#elif COMPILER_GCC || COMPILER_CLANG
-#	define TRAP() __builtin_trap()
-#else
-#	define TRAP() abort()
-#endif
-
-#define ASSERT_ALWAYS(expr) if(!(expr)) { TRAP(); }
-#if ENABLE_ASSERTIONS
-#	define ASSERT(expr) ASSERT_ALWAYS(expr)
-#else
-#	define ASSERT(expr) ((void)(expr))
-#endif
 
 #define LOG(...)		LogAdd("INFO", __VA_ARGS__)
 #define LOG_WARN(...)	LogAddVerbose("WARN", __FUNCTION__, __FILE__, __LINE__, __VA_ARGS__)
@@ -568,7 +523,7 @@ struct TConnection {
 	uint32 RandomSeed;
 	uint32 XTEA[4];
 	char RemoteAddress[32];
-	uint8 Buffer[KB(2)];
+	uint8 Buffer[kb(2)];
 };
 
 struct TStatusRecord {

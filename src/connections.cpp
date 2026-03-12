@@ -1,6 +1,7 @@
 #include "common.h"
 
 #include <errno.h>
+#include <iterator>
 #include <vector>
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -584,7 +585,7 @@ void ProcessLoginRequest(TConnection *Connection){
 	int PremiumDays = 0;
 	TCharacterLoginData Characters[50];
 	int LoginCode = LoginAccount(AccountID, Password, IPString,
-			NARRAY(Characters), &NumCharacters, Characters, &PremiumDays);
+			static_cast<int>(std::size(Characters)), &NumCharacters, Characters, &PremiumDays);
 	switch(LoginCode){
 		case 0:{
 			SendCharacterList(Connection, NumCharacters, Characters, PremiumDays);

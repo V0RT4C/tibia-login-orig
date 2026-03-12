@@ -206,7 +206,7 @@ int ExecuteQuery(TQueryManagerConnection *Connection, bool AutoReconnect,
 int LoginAccount(int AccountID, const char *Password, const char *IPAddress,
 		int MaxCharacters, int *NumCharacters, TCharacterLoginData *Characters,
 		int *PremiumDays){
-	uint8 Buffer[KB(4)];
+	uint8 Buffer[kb(4)];
 	TWriteBuffer WriteBuffer = PrepareQuery(QUERY_LOGIN_ACCOUNT, Buffer, sizeof(Buffer));
 	WriteBuffer.Write32((uint32)AccountID);
 	WriteBuffer.WriteString(Password);

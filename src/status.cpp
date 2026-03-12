@@ -1,7 +1,7 @@
 #include "common.h"
 
 static int g_LastStatusRefresh;
-static char g_StatusString[KB(2)];
+static char g_StatusString[kb(2)];
 
 struct XMLBuffer{
 	char *Data;
