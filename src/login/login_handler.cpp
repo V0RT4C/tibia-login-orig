@@ -1,6 +1,7 @@
 #include "login/login_handler.h"
 
 #include <iterator>
+#include <stdlib.h>
 
 #include "common.h"
 #include "crypto/rsa.h"

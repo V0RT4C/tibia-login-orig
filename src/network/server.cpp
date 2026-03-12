@@ -5,6 +5,8 @@
 #include "status/status_handler.h"
 
 #include <errno.h>
+#include <stdlib.h>
+#include <string.h>
 #include <memory>
 #include <vector>
 #include <fcntl.h>
