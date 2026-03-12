@@ -131,7 +131,7 @@ static TConnection *AssignConnection(int Socket, uint32 Addr, uint16 Port){
 		Connection->State = CONNECTION_READING;
 		Connection->Socket = Socket;
 		Connection->IPAddress = (int)Addr;
-		Connection->StartTime = GetMonotonicUptime();
+		Connection->StartTime = get_monotonic_uptime();
 		Connection->RandomSeed = (uint32)rand();
 		string_buf_format(Connection->RemoteAddress,
 				"%d.%d.%d.%d:%d",
@@ -272,7 +272,7 @@ static void CheckConnection(TConnection *Connection, int Events){
 	}
 
 	if(g_Config.ConnectionTimeout > 0){
-		int ElapsedTime = GetMonotonicUptime() - Connection->StartTime;
+		int ElapsedTime = get_monotonic_uptime() - Connection->StartTime;
 		if(ElapsedTime >= g_Config.ConnectionTimeout){
 			LOG_WARN("Connection %s TIMEDOUT (ElapsedTime: %ds, Timeout: %ds)",
 					Connection->RemoteAddress, ElapsedTime, g_Config.ConnectionTimeout);
@@ -634,7 +634,7 @@ static bool AllowStatusRequest(int IPAddress){
 	TStatusRecord *Record = NULL;
 	int LeastRecentlyUsedIndex = 0;
 	int LeastRecentlyUsedTime = g_StatusRecords[0].Timestamp;
-	int TimeNow = GetMonotonicUptime();
+	int TimeNow = get_monotonic_uptime();
 	for(int i = 0; i < g_MaxStatusRecords; i += 1){
 		if(g_StatusRecords[i].Timestamp < LeastRecentlyUsedTime){
 			LeastRecentlyUsedIndex = i;

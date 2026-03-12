@@ -4,6 +4,7 @@
 #include "common/types.h"
 #include "common/assert.h"
 #include "common/string_utils.h"
+#include "common/logging.h"
 
 #include <ctype.h>
 #include <stdarg.h>
@@ -13,15 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
-#define LOG(...)		LogAdd("INFO", __VA_ARGS__)
-#define LOG_WARN(...)	LogAddVerbose("WARN", __FUNCTION__, __FILE__, __LINE__, __VA_ARGS__)
-#define LOG_ERR(...)	LogAddVerbose("ERR", __FUNCTION__, __FILE__, __LINE__, __VA_ARGS__)
-#define PANIC(...)																\
-	do{																			\
-		LogAddVerbose("PANIC", __FUNCTION__, __FILE__, __LINE__, __VA_ARGS__);	\
-		TRAP();																	\
-	}while(0)
 
 struct TConfig {
 	// Service Config
@@ -45,15 +37,6 @@ struct TConfig {
 };
 
 extern TConfig g_Config;
-
-void LogAdd(const char *Prefix, const char *Format, ...) ATTR_PRINTF(2, 3);
-void LogAddVerbose(const char *Prefix, const char *Function,
-		const char *File, int Line, const char *Format, ...) ATTR_PRINTF(5, 6);
-
-struct tm GetLocalTime(time_t t);
-struct tm GetGMTime(time_t t);
-int64 GetClockMonotonicMS(void);
-int GetMonotonicUptime(void);
 
 bool ParseBoolean(bool *Dest, const char *String);
 bool ParseInteger(int *Dest, const char *String);

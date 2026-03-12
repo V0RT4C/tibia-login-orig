@@ -3,97 +3,8 @@
 #include <errno.h>
 #include <signal.h>
 
-int64   g_StartTimeMS    = 0;
 int     g_ShutdownSignal = 0;
 TConfig g_Config         = {};
-
-void LogAdd(const char *Prefix, const char *Format, ...){
-	char Entry[4096];
-	va_list ap;
-	va_start(ap, Format);
-	vsnprintf(Entry, sizeof(Entry), Format, ap);
-	va_end(ap);
-
-	// NOTE(fusion): Trim trailing whitespace.
-	int Length = (int)strlen(Entry);
-	while(Length > 0 && isspace(Entry[Length - 1])){
-		Entry[Length - 1] = 0;
-		Length -= 1;
-	}
-
-	if(Length > 0){
-		char TimeString[128];
-		string_buf_format_time(TimeString, "%Y-%m-%d %H:%M:%S", (int)time(NULL));
-		fprintf(stdout, "%s [%s] %s\n", TimeString, Prefix, Entry);
-		fflush(stdout);
-	}
-}
-
-void LogAddVerbose(const char *Prefix, const char *Function,
-		const char *File, int Line, const char *Format, ...){
-	char Entry[4096];
-	va_list ap;
-	va_start(ap, Format);
-	vsnprintf(Entry, sizeof(Entry), Format, ap);
-	va_end(ap);
-
-	// NOTE(fusion): Trim trailing whitespace.
-	int Length = (int)strlen(Entry);
-	while(Length > 0 && isspace(Entry[Length - 1])){
-		Entry[Length - 1] = 0;
-		Length -= 1;
-	}
-
-	if(Length > 0){
-		(void)File;
-		(void)Line;
-		char TimeString[128];
-		string_buf_format_time(TimeString, "%Y-%m-%d %H:%M:%S", (int)time(NULL));
-		fprintf(stdout, "%s [%s] %s: %s\n", TimeString, Prefix, Function, Entry);
-		fflush(stdout);
-	}
-}
-
-struct tm GetLocalTime(time_t t){
-	struct tm result;
-#if COMPILER_MSVC
-	localtime_s(&result, &t);
-#else
-	localtime_r(&t, &result);
-#endif
-	return result;
-}
-
-struct tm GetGMTime(time_t t){
-	struct tm result;
-#if COMPILER_MSVC
-	gmtime_s(&result, &t);
-#else
-	gmtime_r(&t, &result);
-#endif
-	return result;
-}
-
-int64 GetClockMonotonicMS(void){
-#if OS_WINDOWS
-	LARGE_INTEGER Counter, Frequency;
-	QueryPerformanceCounter(&Counter);
-	QueryPerformanceFrequency(&Frequency);
-	return (int64)((Counter.QuadPart * 1000) / Frequency.QuadPart);
-#else
-	// NOTE(fusion): The coarse monotonic clock has a larger resolution but is
-	// supposed to be faster, even avoiding system calls in some cases. It should
-	// be fine for millisecond precision which is what we're using.
-	struct timespec Time;
-	clock_gettime(CLOCK_MONOTONIC_COARSE, &Time);
-	return ((int64)Time.tv_sec * 1000)
-		+ ((int64)Time.tv_nsec / 1000000);
-#endif
-}
-
-int GetMonotonicUptime(void){
-	return (int)((GetClockMonotonicMS() - g_StartTimeMS) / 1000);
-}
 
 bool ParseBoolean(bool *Dest, const char *String){
 	ASSERT(Dest && String);
@@ -341,7 +252,7 @@ int main(int argc, const char **argv){
 	(void)argc;
 	(void)argv;
 
-	g_StartTimeMS = GetClockMonotonicMS();
+	init_monotonic_clock();
 	g_ShutdownSignal = 0;
 	if(!SigHandler(SIGPIPE, SIG_IGN)
 	|| !SigHandler(SIGINT, ShutdownHandler)

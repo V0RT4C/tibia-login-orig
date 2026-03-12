@@ -16,6 +16,7 @@ set(SOURCES
     src/query.cpp
     src/status.cpp
     src/crypto.cpp
+    src/common/logging.cpp
     src/common/string_utils.cpp
     src/common/utf8.cpp
     src/common/buffer_reader.cpp
