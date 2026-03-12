@@ -38,3 +38,9 @@ add_executable(test_xtea test_xtea.cpp ../src/crypto/xtea.cpp)
 target_include_directories(test_xtea PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_compile_features(test_xtea PRIVATE cxx_std_17)
 add_test(NAME test_xtea COMMAND test_xtea)
+
+add_executable(test_xml_builder test_xml_builder.cpp
+    ../src/status/xml_builder.cpp ../src/common/logging.cpp ../src/common/string_utils.cpp)
+target_include_directories(test_xml_builder PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_compile_features(test_xml_builder PRIVATE cxx_std_17)
+add_test(NAME test_xml_builder COMMAND test_xml_builder)

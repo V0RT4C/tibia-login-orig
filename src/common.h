@@ -35,9 +35,8 @@ extern ServerConfig g_config;
 
 extern QueryClient* query_client;
 
-// status.cc
-//==============================================================================
-const char *GetStatusString(void);
+#include "status/xml_builder.h"
+#include "status/status_handler.h"
 
 // connections.cc
 //==============================================================================

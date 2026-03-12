@@ -16,7 +16,8 @@ set(SOURCES
     src/query/login_query.cpp
     src/query/world_query.cpp
     src/query/query_client.cpp
-    src/status.cpp
+    src/status/xml_builder.cpp
+    src/status/status_handler.cpp
     src/crypto/xtea.cpp
     src/crypto/rsa.cpp
     src/config/config.cpp

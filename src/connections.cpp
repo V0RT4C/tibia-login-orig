@@ -692,7 +692,7 @@ void ProcessStatusRequest(TConnection *Connection){
 		char Request[5] = {};
 		ReadBuffer.read_bytes((uint8*)Request, 4);
 		if(string_equals_ignore_case(Request, "info")){
-			const char *StatusString = GetStatusString();
+			const char *StatusString = get_status_string(*query_client, g_config);
 			SendStatusString(Connection, StatusString);
 		}else{
 			LOG_WARN("Invalid status request \"%s\" from %s",
