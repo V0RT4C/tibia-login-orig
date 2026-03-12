@@ -16,6 +16,7 @@ set(SOURCES
     src/query.cpp
     src/status.cpp
     src/crypto.cpp
+    src/common/utf8.cpp
 )
 
 add_executable(login ${SOURCES})

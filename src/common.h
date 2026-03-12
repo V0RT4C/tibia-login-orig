@@ -67,14 +67,6 @@ void StringClear(char *Dest, int DestCapacity);
 uint32 StringHash(const char *String);
 bool StringEscape(char *Dest, int DestCapacity, const char *Src);
 
-int UTF8SequenceSize(uint8 LeadingByte);
-bool UTF8IsTrailingByte(uint8 Byte);
-int UTF8EncodedSize(int Codepoint);
-int UTF8FindNextLeadingByte(const char *Src, int SrcLength);
-int UTF8DecodeOne(const uint8 *Src, int SrcLength, int *OutCodepoint);
-int UTF8EncodeOne(uint8 *Dest, int DestCapacity, int Codepoint);
-int UTF8ToLatin1(char *Dest, int DestCapacity, const char *Src, int SrcLength);
-int Latin1ToUTF8(char *Dest, int DestCapacity, const char *Src, int SrcLength);
 
 bool ParseBoolean(bool *Dest, const char *String);
 bool ParseInteger(int *Dest, const char *String);
@@ -99,6 +91,7 @@ bool ReadConfig(const char *FileName, TConfig *Config);
 // Buffer Utility
 //==============================================================================
 #include "common/byte_order.h"
+#include "common/utf8.h"
 
 struct TReadBuffer{
 	uint8 *Buffer;
@@ -195,7 +188,7 @@ struct TReadBuffer{
 			int Written = 0;
 			if(this->CanRead(Length)){
 				const char *Src = (const char*)(this->Buffer + this->Position);
-				Written = Latin1ToUTF8(Dest, DestCapacity, Src, Length);
+				Written = latin1_to_utf8(Dest, DestCapacity, Src, Length);
 				if(Written >= DestCapacity){
 					Written = 0;
 				}
@@ -298,7 +291,7 @@ struct TWriteBuffer{
 		int OutputLength = 0;
 		if(String != NULL){
 			StringLength = (int)strlen(String);
-			OutputLength = UTF8ToLatin1(NULL, 0, String, (int)strlen(String));
+			OutputLength = utf8_to_latin1(NULL, 0, String, (int)strlen(String));
 		}
 
 		if(OutputLength < 0xFFFF){
@@ -309,7 +302,7 @@ struct TWriteBuffer{
 		}
 
 		if(OutputLength > 0 && this->CanWrite(OutputLength)){
-			int Written = UTF8ToLatin1((char*)(this->Buffer + this->Position),
+			int Written = utf8_to_latin1((char*)(this->Buffer + this->Position),
 					(this->Size - this->Position), String, StringLength);
 			ASSERT(Written == OutputLength);
 		}

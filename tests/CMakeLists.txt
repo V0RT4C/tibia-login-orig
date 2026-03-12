@@ -5,3 +5,8 @@ add_executable(test_byte_order test_byte_order.cpp)
 target_include_directories(test_byte_order PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_compile_features(test_byte_order PRIVATE cxx_std_17)
 add_test(NAME test_byte_order COMMAND test_byte_order)
+
+add_executable(test_utf8 test_utf8.cpp ../src/common/utf8.cpp)
+target_include_directories(test_utf8 PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_compile_features(test_utf8 PRIVATE cxx_std_17)
+add_test(NAME test_utf8 COMMAND test_utf8)
