@@ -14,6 +14,7 @@ set(SOURCES
     src/main.cpp
     src/connections.cpp
     src/query.cpp
+    src/query/query_client.cpp
     src/status.cpp
     src/crypto/xtea.cpp
     src/crypto/rsa.cpp

@@ -1,301 +1,99 @@
 #include "common.h"
 
-#include <errno.h>
-#include <netdb.h>
-#include <sys/socket.h>
-#include <unistd.h>
+static QueryClient* g_query_client;
 
-static TQueryManagerConnection *g_QueryManagerConnection;
+int LoginAccount(int account_id, const char* password, const char* ip_address,
+        int max_characters, int* num_characters, CharacterLoginData* characters,
+        int* premium_days) {
+    uint8 buffer[kb(4)];
+    BufferWriter write_buffer = g_query_client->prepare_query(
+            QueryType::LoginAccount, buffer, sizeof(buffer));
+    write_buffer.write_u32((uint32)account_id);
+    write_buffer.write_string(password);
+    write_buffer.write_string(ip_address);
 
-static bool ResolveHostName(const char *HostName, in_addr_t *OutAddr){
-	ASSERT(HostName != NULL && OutAddr != NULL);
-	addrinfo *Result = NULL;
-	addrinfo Hints = {};
-	Hints.ai_family = AF_INET;
-	Hints.ai_socktype = SOCK_STREAM;
-	int ErrCode = getaddrinfo(HostName, NULL, &Hints, &Result);
-	if(ErrCode != 0){
-		LOG_ERR("Failed to resolve hostname \"%s\": %s", HostName, gai_strerror(ErrCode));
-		return false;
-	}
+    BufferReader read_buffer;
+    QueryStatus status = g_query_client->execute_query(true, &write_buffer, &read_buffer);
+    int result = (status == QueryStatus::Ok ? 0 : -1);
+    if (status == QueryStatus::Ok) {
+        *num_characters = read_buffer.read_u8();
+        if (*num_characters > max_characters) {
+            LOG_ERR("Too many characters");
+            return -1;
+        }
 
-	bool Resolved = false;
-	for(addrinfo *AddrInfo = Result;
-			AddrInfo != NULL;
-			AddrInfo = AddrInfo->ai_next){
-		if(AddrInfo->ai_family == AF_INET && AddrInfo->ai_socktype == SOCK_STREAM){
-			ASSERT(AddrInfo->ai_addrlen == sizeof(sockaddr_in));
-			*OutAddr = ((sockaddr_in*)AddrInfo->ai_addr)->sin_addr.s_addr;
-			Resolved = true;
-			break;
-		}
-	}
-	freeaddrinfo(Result);
-	return Resolved;
+        for (int i = 0; i < *num_characters; i += 1) {
+            read_buffer.read_string(characters[i].name, sizeof(characters[i].name));
+            read_buffer.read_string(characters[i].world_name, sizeof(characters[i].world_name));
+            characters[i].world_address = read_buffer.read_u32_be();
+            characters[i].world_port = read_buffer.read_u16();
+        }
+
+        *premium_days = read_buffer.read_u16();
+    } else if (status == QueryStatus::Error) {
+        int error_code = read_buffer.read_u8();
+        if (error_code >= 1 && error_code <= 6) {
+            result = error_code;
+        } else {
+            LOG_ERR("Invalid error code %d", error_code);
+        }
+    } else {
+        LOG_ERR("Request failed");
+    }
+    return result;
 }
 
-static bool WriteExact(int Fd, const uint8 *Buffer, int Size){
-	int BytesToWrite = Size;
-	const uint8 *WritePtr = Buffer;
-	while(BytesToWrite > 0){
-		int Ret = (int)write(Fd, WritePtr, BytesToWrite);
-		if(Ret == -1){
-			return false;
-		}
-		BytesToWrite -= Ret;
-		WritePtr += Ret;
-	}
-	return true;
+int GetWorld(const char* world_name, WorldInfo* out_world) {
+    ASSERT(world_name && out_world);
+    uint8 buffer[4096];
+    BufferReader read_buffer;
+    BufferWriter write_buffer = g_query_client->prepare_query(
+            QueryType::GetWorlds, buffer, sizeof(buffer));
+    QueryStatus status = g_query_client->execute_query(true, &write_buffer, &read_buffer);
+    int result = (status == QueryStatus::Ok ? 0 : -1);
+    memset(out_world, 0, sizeof(WorldInfo));
+    if (status == QueryStatus::Ok) {
+        int num_worlds = (int)read_buffer.read_u8();
+        for (int i = 0; i < num_worlds; i += 1) {
+            WorldInfo world = {};
+            read_buffer.read_string(world.name, sizeof(world.name));
+            world.type = (int)read_buffer.read_u8();
+            world.num_players = (int)read_buffer.read_u16();
+            world.max_players = (int)read_buffer.read_u16();
+            world.online_peak = (int)read_buffer.read_u16();
+            world.online_peak_timestamp = (int)read_buffer.read_u32();
+            world.last_startup = (int)read_buffer.read_u32();
+            world.last_shutdown = (int)read_buffer.read_u32();
+
+            if (string_empty(world_name)) {
+                if (i == 0 || world.num_players > out_world->num_players) {
+                    *out_world = world;
+                }
+            } else if (string_equals_ignore_case(world_name, world.name)) {
+                *out_world = world;
+                break;
+            }
+        }
+    } else {
+        LOG_ERR("Request failed");
+    }
+    return result;
 }
 
-static bool ReadExact(int Fd, uint8 *Buffer, int Size){
-	int BytesToRead = Size;
-	uint8 *ReadPtr = Buffer;
-	while(BytesToRead > 0){
-		int Ret = (int)read(Fd, ReadPtr, BytesToRead);
-		if(Ret == -1 || Ret == 0){
-			return false;
-		}
-		BytesToRead -= Ret;
-		ReadPtr += Ret;
-	}
-	return true;
+bool InitQuery(void) {
+    ASSERT(g_query_client == nullptr);
+    g_query_client = new QueryClient();
+    if (!g_query_client->connect(g_config.query_manager_host,
+            g_config.query_manager_port, g_config.query_manager_password)) {
+        LOG_ERR("Failed to connect to query manager");
+        return false;
+    }
+    return true;
 }
 
-bool Connect(TQueryManagerConnection *Connection){
-	if(Connection->Socket != -1){
-		LOG_ERR("Already connected");
-		return false;
-	}
-
-	in_addr_t Addr;
-	if(!ResolveHostName(g_config.query_manager_host, &Addr)){
-		LOG_ERR("Failed to resolve query manager's host name \"%s\"", g_config.query_manager_host);
-		return false;
-	}
-
-	Connection->Socket = socket(AF_INET, SOCK_STREAM, 0);
-	if(Connection->Socket == -1){
-		LOG_ERR("Failed to create socket: (%d) %s", errno, strerror(errno));
-		return false;
-	}
-
-	sockaddr_in QueryManagerAddress = {};
-	QueryManagerAddress.sin_family = AF_INET;
-	QueryManagerAddress.sin_port = htons((uint16)g_config.query_manager_port);
-	QueryManagerAddress.sin_addr.s_addr = Addr;
-	if(connect(Connection->Socket, (sockaddr*)&QueryManagerAddress, sizeof(QueryManagerAddress)) == -1){
-		LOG_ERR("Failed to connect: (%d) %s", errno, strerror(errno));
-		Disconnect(Connection);
-		return false;
-	}
-
-	uint8 LoginBuffer[1024];
-	BufferWriter WriteBuffer = PrepareQuery(QUERY_LOGIN, LoginBuffer, sizeof(LoginBuffer));
-	WriteBuffer.write_u8((uint8)APPLICATION_TYPE_LOGIN);
-	WriteBuffer.write_string(g_config.query_manager_password);
-	int Status = ExecuteQuery(Connection, false, &WriteBuffer, NULL);
-	if(Status != QUERY_STATUS_OK){
-		LOG_ERR("Failed to login to query manager (%d)", Status);
-		Disconnect(Connection);
-		return false;
-	}
-
-	return true;
+void ExitQuery(void) {
+    if (g_query_client != nullptr) {
+        delete g_query_client;
+        g_query_client = nullptr;
+    }
 }
-
-void Disconnect(TQueryManagerConnection *Connection){
-	if(Connection->Socket != -1){
-		close(Connection->Socket);
-		Connection->Socket = -1;
-	}
-}
-
-bool IsConnected(TQueryManagerConnection *Connection){
-	return Connection->Socket != -1;
-}
-
-BufferWriter PrepareQuery(int QueryType, uint8 *Buffer, int BufferSize){
-	BufferWriter WriteBuffer(Buffer, BufferSize);
-	WriteBuffer.write_u16(0); // Request Size
-	WriteBuffer.write_u8((uint8)QueryType);
-	return WriteBuffer;
-}
-
-int ExecuteQuery(TQueryManagerConnection *Connection, bool AutoReconnect,
-		BufferWriter *WriteBuffer, BufferReader *OutReadBuffer){
-	// IMPORTANT(fusion): This is similar to the Go version where there is no
-	// connection buffer, and the response is read into the same buffer used
-	// by `WriteBuffer. This helps prevent allocating and moving data around
-	// when reconnecting in the middle of a query.
-	ASSERT(WriteBuffer != NULL && WriteBuffer->position > 2);
-
-	int RequestSize = WriteBuffer->position - 2;
-	if(RequestSize < 0xFFFF){
-		WriteBuffer->rewrite_u16(0, (uint16)RequestSize);
-	}else{
-		WriteBuffer->rewrite_u16(0, 0xFFFF);
-		WriteBuffer->insert_u32(2, (uint32)RequestSize);
-	}
-
-	if(WriteBuffer->overflowed()){
-		LOG_ERR("Write buffer overflowed when writing request");
-		return QUERY_STATUS_FAILED;
-	}
-
-	const int MaxAttempts = 2;
-	uint8 *Buffer = WriteBuffer->buffer;
-	int BufferSize = WriteBuffer->size;
-	int WriteSize = WriteBuffer->position;
-	for(int Attempt = 1; true; Attempt += 1){
-		if(!IsConnected(Connection) && (!AutoReconnect || !Connect(Connection))){
-			return QUERY_STATUS_FAILED;
-		}
-
-		if(!WriteExact(Connection->Socket, Buffer, WriteSize)){
-			Disconnect(Connection);
-			if(Attempt >= MaxAttempts){
-				LOG_ERR("Failed to write request");
-				return QUERY_STATUS_FAILED;
-			}
-			continue;
-		}
-
-		uint8 Help[4];
-		if(!ReadExact(Connection->Socket, Help, 2)){
-			Disconnect(Connection);
-			if(Attempt >= MaxAttempts){
-				LOG_ERR("Failed to read response size");
-				return QUERY_STATUS_FAILED;
-			}
-			continue;
-		}
-
-		int ResponseSize = read_u16_le(Help);
-		if(ResponseSize == 0xFFFF){
-			if(!ReadExact(Connection->Socket, Help, 4)){
-				Disconnect(Connection);
-				LOG_ERR("Failed to read response extended size");
-				return QUERY_STATUS_FAILED;
-			}
-			ResponseSize = read_u32_le(Help);
-		}
-
-		if(ResponseSize <= 0 || ResponseSize > BufferSize){
-			Disconnect(Connection);
-			LOG_ERR("Invalid response size %d (BufferSize: %d)",
-					ResponseSize, BufferSize);
-			return QUERY_STATUS_FAILED;
-		}
-
-		if(!ReadExact(Connection->Socket, Buffer, ResponseSize)){
-			Disconnect(Connection);
-			LOG_ERR("Failed to read response");
-			return QUERY_STATUS_FAILED;
-		}
-
-		BufferReader ReadBuffer(Buffer, ResponseSize);
-		int Status = ReadBuffer.read_u8();
-		if(OutReadBuffer){
-			*OutReadBuffer = ReadBuffer;
-		}
-		return Status;
-	}
-}
-
-int LoginAccount(int AccountID, const char *Password, const char *IPAddress,
-		int MaxCharacters, int *NumCharacters, TCharacterLoginData *Characters,
-		int *PremiumDays){
-	uint8 Buffer[kb(4)];
-	BufferWriter WriteBuffer = PrepareQuery(QUERY_LOGIN_ACCOUNT, Buffer, sizeof(Buffer));
-	WriteBuffer.write_u32((uint32)AccountID);
-	WriteBuffer.write_string(Password);
-	WriteBuffer.write_string(IPAddress);
-
-	BufferReader ReadBuffer;
-	int Status = ExecuteQuery(g_QueryManagerConnection, true, &WriteBuffer, &ReadBuffer);
-	int Result = (Status == QUERY_STATUS_OK ? 0 : -1);
-	if(Status == QUERY_STATUS_OK){
-		*NumCharacters = ReadBuffer.read_u8();
-		if(*NumCharacters > MaxCharacters){
-			LOG_ERR("Too many characters");
-			return -1;
-		}
-
-		for(int i = 0; i < *NumCharacters; i += 1){
-			ReadBuffer.read_string(Characters[i].Name, sizeof(Characters[i].Name));
-			ReadBuffer.read_string(Characters[i].WorldName, sizeof(Characters[i].WorldName));
-			Characters[i].WorldAddress = ReadBuffer.read_u32_be();
-			Characters[i].WorldPort = ReadBuffer.read_u16();
-		}
-
-		*PremiumDays = ReadBuffer.read_u16();
-	}else if(Status == QUERY_STATUS_ERROR){
-		int ErrorCode = ReadBuffer.read_u8();
-		if(ErrorCode >= 1 && ErrorCode <= 6){
-			Result = ErrorCode;
-		}else{
-			LOG_ERR("Invalid error code %d", ErrorCode);
-		}
-	}else{
-		LOG_ERR("Request failed");
-	}
-	return Result;
-}
-
-int GetWorld(const char *WorldName, TWorld *OutWorld){
-	ASSERT(WorldName && OutWorld);
-	uint8 Buffer[4096];
-	BufferReader ReadBuffer;
-	BufferWriter WriteBuffer = PrepareQuery(QUERY_GET_WORLDS, Buffer, sizeof(Buffer));
-	int Status = ExecuteQuery(g_QueryManagerConnection, true, &WriteBuffer, &ReadBuffer);
-	int Result = (Status == QUERY_STATUS_OK ? 0 : -1);
-	memset(OutWorld, 0, sizeof(TWorld));
-	if(Status == QUERY_STATUS_OK){
-		int NumWorlds = (int)ReadBuffer.read_u8();
-		for(int i = 0; i < NumWorlds; i += 1){
-			TWorld World = {};
-			ReadBuffer.read_string(World.Name, sizeof(World.Name));
-			World.Type = (int)ReadBuffer.read_u8();
-			World.NumPlayers = (int)ReadBuffer.read_u16();
-			World.MaxPlayers = (int)ReadBuffer.read_u16();
-			World.OnlinePeak = (int)ReadBuffer.read_u16();
-			World.OnlinePeakTimestamp = (int)ReadBuffer.read_u32();
-			World.LastStartup = (int)ReadBuffer.read_u32();
-			World.LastShutdown = (int)ReadBuffer.read_u32();
-
-			if(string_empty(WorldName)){
-				// NOTE(fusion): Pick the world with the most players.
-				if(i == 0 || World.NumPlayers > OutWorld->NumPlayers){
-					*OutWorld = World;
-				}
-			}else if(string_equals_ignore_case(WorldName, World.Name)){
-				*OutWorld = World;
-				break;
-			}
-		}
-	}else{
-		LOG_ERR("Request failed");
-	}
-	return Result;
-}
-
-bool InitQuery(void){
-	ASSERT(g_QueryManagerConnection == NULL);
-	g_QueryManagerConnection = (TQueryManagerConnection*)calloc(1, sizeof(TQueryManagerConnection));
-	g_QueryManagerConnection->Socket = -1;
-	if(!Connect(g_QueryManagerConnection)){
-		LOG_ERR("Failed to connect to query manager");
-		return false;
-	}
-	return true;
-}
-
-void ExitQuery(void){
-	if(g_QueryManagerConnection != NULL){
-		Disconnect(g_QueryManagerConnection);
-		free(g_QueryManagerConnection);
-		g_QueryManagerConnection = NULL;
-	}
-}
-

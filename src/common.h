@@ -27,58 +27,15 @@ extern ServerConfig g_config;
 #include "crypto/rsa.h"
 #include "crypto/xtea.h"
 
-// query.cc
+#include "query/query_types.h"
+#include "query/query_client.h"
+
+// query.cpp
 //==============================================================================
-enum {
-	APPLICATION_TYPE_GAME	= 1,
-	APPLICATION_TYPE_LOGIN	= 2,
-	APPLICATION_TYPE_WEB	= 3,
-};
-
-enum {
-	QUERY_STATUS_OK			= 0,
-	QUERY_STATUS_ERROR		= 1,
-	QUERY_STATUS_FAILED		= 3,
-};
-
-enum {
-	QUERY_LOGIN				= 0,
-	QUERY_LOGIN_ACCOUNT		= 11,
-	QUERY_GET_WORLDS		= 150,
-};
-
-struct TQueryManagerConnection{
-	int Socket;
-};
-
-struct TCharacterLoginData{
-	char Name[30];
-	char WorldName[30];
-	int WorldAddress;
-	int WorldPort;
-};
-
-struct TWorld {
-	char Name[30];
-	int Type;
-	int NumPlayers;
-	int MaxPlayers;
-	int OnlinePeak;
-	int OnlinePeakTimestamp;
-	int LastStartup;
-	int LastShutdown;
-};
-
-bool Connect(TQueryManagerConnection *Connection);
-void Disconnect(TQueryManagerConnection *Connection);
-bool IsConnected(TQueryManagerConnection *Connection);
-BufferWriter PrepareQuery(int QueryType, uint8 *Buffer, int BufferSize);
-int ExecuteQuery(TQueryManagerConnection *Connection, bool AutoReconnect,
-		BufferWriter *WriteBuffer, BufferReader *OutReadBuffer);
-int LoginAccount(int AccountID, const char *Password, const char *IPAddress,
-		int MaxCharacters, int *NumCharacters, TCharacterLoginData *Characters,
-		int *PremiumDays);
-int GetWorld(const char *WorldName, TWorld *OutWorld);
+int LoginAccount(int account_id, const char* password, const char* ip_address,
+		int max_characters, int* num_characters, CharacterLoginData* characters,
+		int* premium_days);
+int GetWorld(const char* world_name, WorldInfo* out_world);
 bool InitQuery(void);
 void ExitQuery(void);
 

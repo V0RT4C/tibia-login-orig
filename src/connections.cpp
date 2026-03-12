@@ -484,7 +484,7 @@ static void SendLoginError(TConnection *Connection, const char *Message){
 }
 
 static void SendCharacterList(TConnection *Connection, int NumCharacters,
-		TCharacterLoginData *Characters, int PremiumDays){
+		CharacterLoginData *Characters, int PremiumDays){
 	BufferWriter WriteBuffer = PrepareXTEAResponse(Connection);
 
 	if(g_config.motd[0] != 0){
@@ -498,10 +498,10 @@ static void SendCharacterList(TConnection *Connection, int NumCharacters,
 	}
 	WriteBuffer.write_u8(NumCharacters);
 	for(int i = 0; i < NumCharacters; i += 1){
-		WriteBuffer.write_string(Characters[i].Name);
-		WriteBuffer.write_string(Characters[i].WorldName);
-		WriteBuffer.write_u32_be((uint32)Characters[i].WorldAddress);
-		WriteBuffer.write_u16((uint16)Characters[i].WorldPort);
+		WriteBuffer.write_string(Characters[i].name);
+		WriteBuffer.write_string(Characters[i].world_name);
+		WriteBuffer.write_u32_be((uint32)Characters[i].world_address);
+		WriteBuffer.write_u16((uint16)Characters[i].world_port);
 	}
 	WriteBuffer.write_u16((uint16)PremiumDays);
 
@@ -581,7 +581,7 @@ void ProcessLoginRequest(TConnection *Connection){
 
 	int NumCharacters = 0;
 	int PremiumDays = 0;
-	TCharacterLoginData Characters[50];
+	CharacterLoginData Characters[50];
 	int LoginCode = LoginAccount(AccountID, Password, IPString,
 			static_cast<int>(std::size(Characters)), &NumCharacters, Characters, &PremiumDays);
 	switch(LoginCode){

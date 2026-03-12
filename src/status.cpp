@@ -156,15 +156,15 @@ const char *GetStatusString(void){
 		int MaxPlayers = 0;
 		int OnlinePeak = 0;
 
-		TWorld World = {};
+		WorldInfo World = {};
 		if(GetWorld(g_config.status_world, &World) == 0){
-			WorldName = World.Name;
-			if(World.LastStartup != 0 && World.LastStartup > World.LastShutdown){
-				Uptime = TimeNow - World.LastStartup;
+			WorldName = World.name;
+			if(World.last_startup != 0 && World.last_startup > World.last_shutdown){
+				Uptime = TimeNow - World.last_startup;
 			}
-			NumPlayers = World.NumPlayers;
-			MaxPlayers = World.MaxPlayers;
-			OnlinePeak = World.OnlinePeak;
+			NumPlayers = World.num_players;
+			MaxPlayers = World.max_players;
+			OnlinePeak = World.online_peak;
 
 			// IMPORTANT(fusion): This could be a common behaviour but, on OTSERVLIST,
 			// the server will show as OFFLINE if the the online peak is less than
