@@ -27,3 +27,9 @@ add_executable(test_string_utils test_string_utils.cpp ../src/common/string_util
 target_include_directories(test_string_utils PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_compile_features(test_string_utils PRIVATE cxx_std_17)
 add_test(NAME test_string_utils COMMAND test_string_utils)
+
+add_executable(test_config test_config.cpp ../src/config/config.cpp
+    ../src/common/string_utils.cpp ../src/common/logging.cpp ../src/common/utf8.cpp)
+target_include_directories(test_config PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_compile_features(test_config PRIVATE cxx_std_17)
+add_test(NAME test_config COMMAND test_config)

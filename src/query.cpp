@@ -69,8 +69,8 @@ bool Connect(TQueryManagerConnection *Connection){
 	}
 
 	in_addr_t Addr;
-	if(!ResolveHostName(g_Config.QueryManagerHost, &Addr)){
-		LOG_ERR("Failed to resolve query manager's host name \"%s\"", g_Config.QueryManagerHost);
+	if(!ResolveHostName(g_config.query_manager_host, &Addr)){
+		LOG_ERR("Failed to resolve query manager's host name \"%s\"", g_config.query_manager_host);
 		return false;
 	}
 
@@ -82,7 +82,7 @@ bool Connect(TQueryManagerConnection *Connection){
 
 	sockaddr_in QueryManagerAddress = {};
 	QueryManagerAddress.sin_family = AF_INET;
-	QueryManagerAddress.sin_port = htons((uint16)g_Config.QueryManagerPort);
+	QueryManagerAddress.sin_port = htons((uint16)g_config.query_manager_port);
 	QueryManagerAddress.sin_addr.s_addr = Addr;
 	if(connect(Connection->Socket, (sockaddr*)&QueryManagerAddress, sizeof(QueryManagerAddress)) == -1){
 		LOG_ERR("Failed to connect: (%d) %s", errno, strerror(errno));
@@ -93,7 +93,7 @@ bool Connect(TQueryManagerConnection *Connection){
 	uint8 LoginBuffer[1024];
 	BufferWriter WriteBuffer = PrepareQuery(QUERY_LOGIN, LoginBuffer, sizeof(LoginBuffer));
 	WriteBuffer.write_u8((uint8)APPLICATION_TYPE_LOGIN);
-	WriteBuffer.write_string(g_Config.QueryManagerPassword);
+	WriteBuffer.write_string(g_config.query_manager_password);
 	int Status = ExecuteQuery(Connection, false, &WriteBuffer, NULL);
 	if(Status != QUERY_STATUS_OK){
 		LOG_ERR("Failed to login to query manager (%d)", Status);

@@ -118,7 +118,7 @@ static void CloseConnection(TConnection *Connection){
 
 static TConnection *AssignConnection(int Socket, uint32 Addr, uint16 Port){
 	int ConnectionIndex = -1;
-	for(int i = 0; i < g_Config.MaxConnections; i += 1){
+	for(int i = 0; i < g_config.max_connections; i += 1){
 		if(g_Connections[i].State == CONNECTION_FREE){
 			ConnectionIndex = i;
 			break;
@@ -271,11 +271,11 @@ static void CheckConnection(TConnection *Connection, int Events){
 		CloseConnection(Connection);
 	}
 
-	if(g_Config.ConnectionTimeout > 0){
+	if(g_config.connection_timeout > 0){
 		int ElapsedTime = get_monotonic_uptime() - Connection->StartTime;
-		if(ElapsedTime >= g_Config.ConnectionTimeout){
+		if(ElapsedTime >= g_config.connection_timeout){
 			LOG_WARN("Connection %s TIMEDOUT (ElapsedTime: %ds, Timeout: %ds)",
-					Connection->RemoteAddress, ElapsedTime, g_Config.ConnectionTimeout);
+					Connection->RemoteAddress, ElapsedTime, g_config.connection_timeout);
 			CloseConnection(Connection);
 		}
 	}
@@ -302,7 +302,7 @@ static void AcceptConnections(int Events){
 		if(AssignConnection(Socket, Addr, Port) == NULL){
 			LOG_ERR("Rejecting connection %08X:%d:"
 					" max number of connections reached (%d)",
-					Addr, Port, g_Config.MaxConnections);
+					Addr, Port, g_config.max_connections);
 			close(Socket);
 		}
 	}
@@ -322,7 +322,7 @@ void ProcessConnections(void){
 		NumFds += 1;
 	}
 
-	for(int i = 0; i < g_Config.MaxConnections; i += 1){
+	for(int i = 0; i < g_config.max_connections; i += 1){
 		if(g_Connections[i].State == CONNECTION_FREE){
 			continue;
 		}
@@ -353,7 +353,7 @@ void ProcessConnections(void){
 	for(int i = 0; i < NumFds; i += 1){
 		int Index = ConnectionIndices[i];
 		int Events = (int)Fds[i].revents;
-		if(Index >= 0 && Index < g_Config.MaxConnections){
+		if(Index >= 0 && Index < g_config.max_connections){
 			TConnection *Connection = &g_Connections[Index];
 			CheckConnectionInput(Connection, Events);
 			CheckConnectionRequest(Connection);
@@ -379,20 +379,20 @@ bool InitConnections(void){
 		return false;
 	}
 
-	g_Listener = ListenerBind((uint16)g_Config.LoginPort);
+	g_Listener = ListenerBind((uint16)g_config.login_port);
 	if(g_Listener == -1){
-		LOG_ERR("Failed to bind listener to port %d", g_Config.LoginPort);
+		LOG_ERR("Failed to bind listener to port %d", g_config.login_port);
 		return false;
 	}
 
-	g_MaxConnections = g_Config.MaxConnections;
+	g_MaxConnections = g_config.max_connections;
 	g_Connections = (TConnection*)calloc(
 			g_MaxConnections, sizeof(TConnection));
 	for(int i = 0; i < g_MaxConnections; i += 1){
 		g_Connections[i].State = CONNECTION_FREE;
 	}
 
-	g_MaxStatusRecords = g_Config.MaxStatusRecords;
+	g_MaxStatusRecords = g_config.max_status_records;
 	g_StatusRecords = (TStatusRecord*)calloc(
 			g_MaxStatusRecords, sizeof(TStatusRecord));
 
@@ -489,9 +489,9 @@ static void SendCharacterList(TConnection *Connection, int NumCharacters,
 		TCharacterLoginData *Characters, int PremiumDays){
 	BufferWriter WriteBuffer = PrepareXTEAResponse(Connection);
 
-	if(g_Config.Motd[0] != 0){
+	if(g_config.motd[0] != 0){
 		WriteBuffer.write_u8(20); // MOTD
-		WriteBuffer.write_string(g_Config.Motd);
+		WriteBuffer.write_string(g_config.motd);
 	}
 
 	WriteBuffer.write_u8(100); // CHARACTER_LIST
@@ -653,7 +653,7 @@ static bool AllowStatusRequest(int IPAddress){
 		Record->IPAddress = IPAddress;
 		Record->Timestamp = TimeNow;
 		Result = true;
-	}else if((TimeNow - Record->Timestamp) >= g_Config.MinStatusInterval){
+	}else if((TimeNow - Record->Timestamp) >= g_config.min_status_interval){
 		Record->Timestamp = TimeNow;
 		Result = true;
 	}

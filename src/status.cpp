@@ -149,7 +149,7 @@ static void XMLAppendStringF(XMLBuffer *Buffer, const char *Format, ...){
 
 const char *GetStatusString(void){
 	int TimeNow = (int)time(NULL);
-	if((TimeNow - g_LastStatusRefresh) >= g_Config.MinStatusInterval){
+	if((TimeNow - g_LastStatusRefresh) >= g_config.min_status_interval){
 		const char *WorldName = "";
 		int Uptime = 0;
 		int NumPlayers = 0;
@@ -157,7 +157,7 @@ const char *GetStatusString(void){
 		int OnlinePeak = 0;
 
 		TWorld World = {};
-		if(GetWorld(g_Config.StatusWorld, &World) == 0){
+		if(GetWorld(g_config.status_world, &World) == 0){
 			WorldName = World.Name;
 			if(World.LastStartup != 0 && World.LastStartup > World.LastShutdown){
 				Uptime = TimeNow - World.LastStartup;
@@ -179,7 +179,7 @@ const char *GetStatusString(void){
 		}
 
 		// NOTE(fusion): Skip line with MOTD hash.
-		const char *Motd = g_Config.Motd;
+		const char *Motd = g_config.motd;
 		while(Motd[0]){
 			if(Motd[0] == '\n'){
 				Motd += 1;
@@ -197,9 +197,9 @@ const char *GetStatusString(void){
 				"<serverinfo servername=\"%s\" uptime=\"%d\" url=\"%s\""
 					" location=\"%s\" server=\"%s\" version=\"%s\""
 					" client=\"%s\"/>",
-				WorldName, Uptime, g_Config.Url, g_Config.Location,
-				g_Config.ServerType, g_Config.ServerVersion,
-				g_Config.ClientVersion);
+				WorldName, Uptime, g_config.url, g_config.location,
+				g_config.server_type, g_config.server_version,
+				g_config.client_version);
 		XMLAppendStringF(&Buffer,
 				"<players online=\"%d\" max=\"%d\" peak=\"%d\"/>",
 				NumPlayers, MaxPlayers, OnlinePeak);

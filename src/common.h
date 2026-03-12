@@ -15,38 +15,9 @@
 #include <string.h>
 #include <time.h>
 
-struct TConfig {
-	// Service Config
-	int LoginPort;
-	int ConnectionTimeout;
-	int MaxConnections;
-	int MaxStatusRecords;
-	int MinStatusInterval;
-	char QueryManagerHost[100];
-	int QueryManagerPort;
-	char QueryManagerPassword[30];
+#include "config/config.h"
 
-	// Service Info
-	char StatusWorld[30];
-	char Url[100];
-	char Location[30];
-	char ServerType[30];
-	char ServerVersion[30];
-	char ClientVersion[30];
-	char Motd[256];
-};
-
-extern TConfig g_Config;
-
-bool ParseBoolean(bool *Dest, const char *String);
-bool ParseInteger(int *Dest, const char *String);
-bool ParseDuration(int *Dest, const char *String);
-bool ParseSize(int *Dest, const char *String);
-bool ParseString(char *Dest, int DestCapacity, const char *String);
-void ParseMotd(char *Dest, int DestCapacity, const char *String);
-bool ReadConfig(const char *FileName, TConfig *Config);
-
-#define parse_string_buf(dest, str) ParseString(dest, sizeof(dest), str)
+extern ServerConfig g_config;
 
 #include "common/byte_order.h"
 #include "common/utf8.h"
