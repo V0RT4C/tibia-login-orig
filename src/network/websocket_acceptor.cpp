@@ -37,6 +37,11 @@ static std::mutex RsaDecryptMutex;
 // this before calling loop->defer() to avoid use-after-free.
 static std::atomic<bool> ShuttingDown{false};
 
+// Active worker count: incremented before spawning a worker thread,
+// decremented when the worker exits. stop_websocket_acceptor waits for
+// this to reach zero before destroying WsRsaKey and returning.
+static std::atomic<int> ActiveWorkers{0};
+
 // Parse a dotted-quad IPv4 string (e.g. "127.0.0.1") into a host-byte-order
 // uint32 matching the loginserver's ip_address format: (a<<24|b<<16|c<<8|d).
 // Returns 0 on failure (including IPv6 addresses).
@@ -59,6 +64,12 @@ static bool safe_defer(uWS::Loop *loop, F &&fn) {
 
 static void process_ws_login(uint64_t request_id, uWS::Loop *loop,
         std::string message, std::string remote_ip_str) {
+    // Ensure ActiveWorkers is decremented when this function exits,
+    // regardless of which path is taken.
+    struct WorkerGuard {
+        ~WorkerGuard() { ActiveWorkers.fetch_sub(1, std::memory_order_release); }
+    } guard;
+
     // Thread-safe seed for rand_r (no global PRNG state).
     unsigned int seed = (unsigned int)(
             (uint64_t)syscall(SYS_gettid) ^ (uint64_t)time(nullptr));
@@ -159,6 +170,9 @@ static void websocket_thread_main() {
             uint8_t command = (uint8_t)message[0];
             if (command == 1) {
                 // Login request — spawn worker thread for blocking query manager I/O.
+                // Increment before spawning so stop_websocket_acceptor can wait
+                // for all workers to finish before destroying shared resources.
+                ActiveWorkers.fetch_add(1, std::memory_order_release);
                 std::string msg_copy(message);
                 std::thread(process_ws_login, request_id, loop,
                         std::move(msg_copy), std::move(remote_ip)).detach();
@@ -226,10 +240,11 @@ void stop_websocket_acceptor() {
         WsThread.join();
     }
 
-    // Brief sleep to allow any in-flight worker threads to complete.
-    // Worker threads check ShuttingDown before calling loop->defer(),
-    // so they will skip the defer and exit cleanly.
-    usleep(100000); // 100ms
+    // Wait for all in-flight worker threads to finish before destroying
+    // WsRsaKey. Workers decrement ActiveWorkers on exit via RAII guard.
+    while (ActiveWorkers.load(std::memory_order_acquire) > 0) {
+        usleep(10000); // 10ms poll
+    }
 
     WsRsaKey.reset();
 }
