@@ -114,14 +114,43 @@ int main(int argc, const char **argv){
 	}
 
 	atexit(exit_query);
-	atexit(exit_connections);
-	if(!init_query() || !init_connections()){
-		return EXIT_FAILURE;
+	if(g_config.transport_mode == TRANSPORT_TCP
+	|| g_config.transport_mode == TRANSPORT_BOTH){
+		atexit(exit_connections);
+		if(!init_query() || !init_connections()){
+			return EXIT_FAILURE;
+		}
+	}else{
+		if(!init_query()){
+			return EXIT_FAILURE;
+		}
+	}
+
+	if(g_config.transport_mode == TRANSPORT_WEBSOCKET
+	|| g_config.transport_mode == TRANSPORT_BOTH){
+		if(!start_websocket_acceptor()){
+			return EXIT_FAILURE;
+		}
 	}
 
 	LOG("Running...");
-	while(g_ShutdownSignal == 0){
-		process_connections();
+	if(g_config.transport_mode == TRANSPORT_TCP
+	|| g_config.transport_mode == TRANSPORT_BOTH){
+		while(g_ShutdownSignal == 0){
+			process_connections();
+		}
+	}else{
+		// WebSocket-only mode: main thread waits for shutdown signal.
+		// Uses existing ShutdownHandler (installed via sigaction above) which sets
+		// g_ShutdownSignal. Simple sleep loop avoids signal mask complexity.
+		while(g_ShutdownSignal == 0){
+			sleep(1);
+		}
+	}
+
+	if(g_config.transport_mode == TRANSPORT_WEBSOCKET
+	|| g_config.transport_mode == TRANSPORT_BOTH){
+		stop_websocket_acceptor();
 	}
 
 	LOG("Received signal %d (%s), shutting down...",

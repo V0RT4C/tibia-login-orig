@@ -34,6 +34,7 @@
 // Network
 #include "network/connection_types.h"
 #include "network/server.h"
+#include "network/websocket_acceptor.h"
 
 // Globals
 extern ServerConfig g_config;
