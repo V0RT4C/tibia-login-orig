@@ -223,6 +223,21 @@ bool read_config(const char *filename, ServerConfig *config){
 			parse_string_buf(config->client_version, val);
 		}else if(string_equals_ignore_case(key, "MOTD")){
 			parse_motd(config->motd, sizeof(config->motd), val);
+		}else if(string_equals_ignore_case(key, "TransportMode")){
+			if(string_equals_ignore_case(val, "tcp")){
+				config->transport_mode = TRANSPORT_TCP;
+			}else if(string_equals_ignore_case(val, "websocket")){
+				config->transport_mode = TRANSPORT_WEBSOCKET;
+			}else if(string_equals_ignore_case(val, "both")){
+				config->transport_mode = TRANSPORT_BOTH;
+			}else{
+				LOG_WARN("%s:%d: Invalid TransportMode \"%s\" (expected tcp, websocket, or both)",
+						filename, line_number, val);
+			}
+		}else if(string_equals_ignore_case(key, "WebSocketPort")){
+			parse_integer(&config->websocket_port, val);
+		}else if(string_equals_ignore_case(key, "WebSocketAddress")){
+			parse_string(config->websocket_address, (int)sizeof(config->websocket_address), val);
 		}else{
 			LOG_WARN("Unknown config \"%s\"", key);
 		}

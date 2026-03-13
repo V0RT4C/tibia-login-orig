@@ -4,6 +4,12 @@
 #include "../common/types.h"
 #include "../common/assert.h"
 
+enum TransportMode {
+	TRANSPORT_TCP       = 0,
+	TRANSPORT_WEBSOCKET = 1,
+	TRANSPORT_BOTH      = 2,
+};
+
 struct ServerConfig {
     // Service Config
     int login_port;
@@ -23,6 +29,11 @@ struct ServerConfig {
     char server_version[30];
     char client_version[30];
     char motd[256];
+
+    // WebSocket Config
+    TransportMode transport_mode;
+    int websocket_port;
+    char websocket_address[16];
 };
 
 bool parse_boolean(bool* dest, const char* str);

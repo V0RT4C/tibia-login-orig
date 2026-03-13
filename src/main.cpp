@@ -75,6 +75,10 @@ int main(int argc, const char **argv){
 	string_buf_copy(g_config.client_version, "");
 	string_buf_copy(g_config.motd,          "");
 
+	g_config.transport_mode    = TRANSPORT_TCP;
+	g_config.websocket_port    = 7172;
+	string_buf_copy(g_config.websocket_address, "0.0.0.0");
+
 	LOG("Tibia Login v0.2");
 	if(!read_config("config.cfg", &g_config)){
 		return EXIT_FAILURE;
@@ -101,6 +105,12 @@ int main(int argc, const char **argv){
 		}else{
 			LOG("MOTD:                \"%s...\"", MotdPreview);
 		}
+	}
+
+	if(g_config.transport_mode == TRANSPORT_WEBSOCKET
+	|| g_config.transport_mode == TRANSPORT_BOTH){
+		LOG("WebSocket port:      %d",     g_config.websocket_port);
+		LOG("WebSocket address:   \"%s\"", g_config.websocket_address);
 	}
 
 	atexit(exit_query);

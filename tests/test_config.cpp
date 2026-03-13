@@ -76,3 +76,54 @@ TEST_CASE("read_config - from temp file") {
 
     std::remove(tmpfile);
 }
+
+TEST_CASE("parse TransportMode") {
+    ServerConfig config = {};
+    const char *path = "/tmp/test_transport_mode.cfg";
+
+    SUBCASE("tcp") {
+        FILE *f = fopen(path, "w");
+        fprintf(f, "TransportMode = tcp\n");
+        fclose(f);
+        read_config(path, &config);
+        CHECK(config.transport_mode == TRANSPORT_TCP);
+    }
+    SUBCASE("websocket") {
+        FILE *f = fopen(path, "w");
+        fprintf(f, "TransportMode = websocket\n");
+        fclose(f);
+        read_config(path, &config);
+        CHECK(config.transport_mode == TRANSPORT_WEBSOCKET);
+    }
+    SUBCASE("both") {
+        FILE *f = fopen(path, "w");
+        fprintf(f, "TransportMode = both\n");
+        fclose(f);
+        read_config(path, &config);
+        CHECK(config.transport_mode == TRANSPORT_BOTH);
+    }
+
+    remove(path);
+}
+
+TEST_CASE("parse WebSocketPort") {
+    ServerConfig config = {};
+    const char *path = "/tmp/test_ws_port.cfg";
+    FILE *f = fopen(path, "w");
+    fprintf(f, "WebSocketPort = 8080\n");
+    fclose(f);
+    read_config(path, &config);
+    CHECK(config.websocket_port == 8080);
+    remove(path);
+}
+
+TEST_CASE("parse WebSocketAddress") {
+    ServerConfig config = {};
+    const char *path = "/tmp/test_ws_addr.cfg";
+    FILE *f = fopen(path, "w");
+    fprintf(f, "WebSocketAddress = \"192.168.1.1\"\n");
+    fclose(f);
+    read_config(path, &config);
+    CHECK(strcmp(config.websocket_address, "192.168.1.1") == 0);
+    remove(path);
+}
