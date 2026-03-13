@@ -152,10 +152,15 @@ static void websocket_thread_main(std::promise<bool> bind_result) {
 
         .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
             if (opCode != uWS::OpCode::BINARY) return;
-            if (message.empty() || message.size() > (size_t)kb(2)) {
+            // The Tibia client sends the TCP-format packet over WebSocket:
+            // [u16 size][payload]. Strip the 2-byte size prefix since WebSocket
+            // already handles framing. Need at least 3 bytes (2 size + 1 command).
+            if (message.size() < 3 || message.size() > (size_t)kb(2)) {
                 ws->close();
                 return;
             }
+            // Skip the 2-byte TCP size prefix.
+            message = message.substr(2);
 
             auto *data = ws->getUserData();
             uint64_t request_id = data->RequestId;
