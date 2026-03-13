@@ -6,6 +6,7 @@
 #include <App.h>
 #include <atomic>
 #include <cstring>
+#include <future>
 #include <mutex>
 #include <thread>
 #include <unordered_map>
@@ -130,7 +131,7 @@ static void process_ws_login(uint64_t request_id, uWS::Loop *loop,
     }
 }
 
-static void websocket_thread_main() {
+static void websocket_thread_main(std::promise<bool> bind_result) {
     uWS::App app;
     AppInstance = &app;
     EventLoop.store(uWS::Loop::get(), std::memory_order_release);
@@ -191,14 +192,16 @@ static void websocket_thread_main() {
     });
 
     app.listen(g_config.websocket_address, g_config.websocket_port,
-            [](auto *listen_socket) {
+            [&bind_result](auto *listen_socket) {
         if (listen_socket) {
             ListenSocket = listen_socket;
             LOG("WebSocket listening on %s:%d",
                     g_config.websocket_address, g_config.websocket_port);
+            bind_result.set_value(true);
         } else {
             LOG_ERR("WebSocket: Failed to listen on %s:%d",
                     g_config.websocket_address, g_config.websocket_port);
+            bind_result.set_value(false);
         }
     });
 
@@ -215,7 +218,19 @@ bool start_websocket_acceptor() {
     }
 
     ShuttingDown.store(false, std::memory_order_release);
-    WsThread = std::thread(websocket_thread_main);
+
+    // Use a promise/future to synchronously detect bind failure.
+    // The listen callback sets the result before app.run() begins processing.
+    std::promise<bool> bind_promise;
+    std::future<bool> bind_future = bind_promise.get_future();
+    WsThread = std::thread(websocket_thread_main, std::move(bind_promise));
+
+    bool bound = bind_future.get();
+    if (!bound) {
+        // Bind failed — stop the thread and clean up.
+        stop_websocket_acceptor();
+        return false;
+    }
     return true;
 }
 
