@@ -139,7 +139,9 @@ static void websocket_thread_main(std::promise<bool> bind_result) {
     app.ws<WsPerSocketData>("/*", {
         .compression = uWS::DISABLED,
         .maxPayloadLength = kb(2),
-        .idleTimeout = (unsigned short)g_config.connection_timeout,
+        // uWS requires idleTimeout to be 0 (disabled) or > 8 seconds.
+        // Login connections are ephemeral (~10ms), so 16s is a generous guard.
+        .idleTimeout = 16,
         .maxBackpressure = kb(4),
 
         .open = [](auto *ws) {
