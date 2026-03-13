@@ -123,7 +123,8 @@ static void process_ws_login(uint64_t request_id, uWS::Loop *loop,
             auto it = PendingRequests.find(request_id);
             if (it != PendingRequests.end()) {
                 it->second->send(response, uWS::OpCode::BINARY);
-                it->second->close();
+                // Don't close immediately — let the client process the
+                // response. The idle timeout (16s) will clean up.
             }
         });
     } else {
