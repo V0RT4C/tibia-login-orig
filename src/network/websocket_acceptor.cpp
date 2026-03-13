@@ -85,6 +85,9 @@ static void process_ws_login(uint64_t request_id, uWS::Loop *loop,
     string_buf_copy(conn.remote_address, remote_ip_str.c_str());
     memcpy(conn.buffer, message.data(), message.size());
 
+    LOG("WebSocket: Processing login request %lu from %s (size: %d)",
+            (unsigned long)request_id, remote_ip_str.c_str(), (int)message.size());
+
     // Each worker thread gets its own QueryClient (thread safety).
     QueryClient client;
     if (!client.connect(g_config.query_manager_host,
@@ -113,6 +116,8 @@ static void process_ws_login(uint64_t request_id, uWS::Loop *loop,
     // - state == Writing: response is in conn.buffer[0..conn.rw_size]
     // - state != Writing: error path called close_connection (no-op for socket==-1)
     if (conn.state == ConnectionState::Writing && conn.rw_size > 0) {
+        LOG("WebSocket: Request %lu complete, sending %d byte response",
+                (unsigned long)request_id, conn.rw_size);
         std::string response((char *)conn.buffer, conn.rw_size);
         safe_defer(loop, [request_id, response = std::move(response)]() {
             auto it = PendingRequests.find(request_id);
@@ -122,6 +127,8 @@ static void process_ws_login(uint64_t request_id, uWS::Loop *loop,
             }
         });
     } else {
+        LOG_WARN("WebSocket: Request %lu failed (state: %d, rw_size: %d)",
+                (unsigned long)request_id, (int)conn.state, conn.rw_size);
         safe_defer(loop, [request_id]() {
             auto it = PendingRequests.find(request_id);
             if (it != PendingRequests.end()) {
