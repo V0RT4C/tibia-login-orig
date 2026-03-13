@@ -17,3 +17,8 @@ ServerVersion        = "7.7"
 ClientVersion        = "7.7"
 MOTD                 = "Welcome to Tibia!"
 
+# WebSocket Transport
+# TransportMode: tcp, websocket, or both
+TransportMode        = tcp
+WebSocketPort        = 7172
+WebSocketAddress     = "0.0.0.0"
