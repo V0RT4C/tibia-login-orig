@@ -15,7 +15,6 @@ RUN apk add --no-cache libssl3 libstdc++ zlib netcat-openbsd
 WORKDIR /opt/loginserver
 COPY --from=builder /src/build/login ./login
 COPY tibia.pem ./tibia.pem
-COPY config.cfg.dist ./config.cfg.dist
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
