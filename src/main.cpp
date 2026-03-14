@@ -57,31 +57,8 @@ int main(int argc, const char **argv){
 		return EXIT_FAILURE;
 	}
 
-	// Service Config
-	g_config.login_port         = 7171;
-	g_config.connection_timeout = 5;   // seconds
-	g_config.max_connections    = 10;
-	g_config.max_status_records  = 1024;
-	g_config.min_status_interval = 300; // seconds
-	string_buf_copy(g_config.query_manager_host, "127.0.0.1");
-	g_config.query_manager_port  = 7173;
-	string_buf_copy(g_config.query_manager_password, "");
-
-	// Service Info
-	string_buf_copy(g_config.status_world,   "");
-	string_buf_copy(g_config.url,           "");
-	string_buf_copy(g_config.location,      "");
-	string_buf_copy(g_config.server_type,    "");
-	string_buf_copy(g_config.server_version, "");
-	string_buf_copy(g_config.client_version, "");
-	string_buf_copy(g_config.motd,          "");
-
-	g_config.transport_mode    = TRANSPORT_TCP;
-	g_config.websocket_port    = 7172;
-	string_buf_copy(g_config.websocket_address, "0.0.0.0");
-
 	LOG("Tibia Login v0.2");
-	if(!read_config("config.cfg", &g_config)){
+	if(!read_config(&g_config)){
 		return EXIT_FAILURE;
 	}
 

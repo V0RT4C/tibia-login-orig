@@ -2,128 +2,131 @@
 #include "doctest.h"
 #include "../src/config/config.h"
 
+#include <cstdlib>
 #include <cstring>
-#include <cstdio>
 
-TEST_CASE("parse_boolean") {
-    bool val;
-    CHECK(parse_boolean(&val, "true") == true);  CHECK(val == true);
-    CHECK(parse_boolean(&val, "TRUE") == true);  CHECK(val == true);
-    CHECK(parse_boolean(&val, "on") == true);    CHECK(val == true);
-    CHECK(parse_boolean(&val, "yes") == true);   CHECK(val == true);
-    CHECK(parse_boolean(&val, "false") == true);  CHECK(val == false);
-    CHECK(parse_boolean(&val, "off") == true);    CHECK(val == false);
-    CHECK(parse_boolean(&val, "no") == true);     CHECK(val == false);
-    CHECK(parse_boolean(&val, "invalid") == false);
+// Helper: set an env var for the duration of a test.
+static void SetEnv(const char *name, const char *value){
+	setenv(name, value, 1);
+}
+static void UnsetEnv(const char *name){
+	unsetenv(name);
 }
 
-TEST_CASE("parse_integer") {
-    int val;
-    CHECK(parse_integer(&val, "42") == true);   CHECK(val == 42);
-    CHECK(parse_integer(&val, "-1") == true);   CHECK(val == -1);
-    CHECK(parse_integer(&val, "0") == true);    CHECK(val == 0);
-    CHECK(parse_integer(&val, "0xFF") == true); CHECK(val == 255);
+TEST_CASE("read_config - defaults when only required var set") {
+	SetEnv("SENJA_QM_PASSWORD", "secret");
+
+	ServerConfig config = {};
+	CHECK(read_config(&config) == true);
+
+	CHECK(config.login_port == 7171);
+	CHECK(config.connection_timeout == 5);
+	CHECK(config.max_connections == 10);
+	CHECK(config.max_status_records == 1024);
+	CHECK(config.min_status_interval == 300);
+	CHECK(std::strcmp(config.query_manager_host, "127.0.0.1") == 0);
+	CHECK(config.query_manager_port == 7173);
+	CHECK(std::strcmp(config.query_manager_password, "secret") == 0);
+	CHECK(std::strcmp(config.status_world, "Senja") == 0);
+	CHECK(std::strcmp(config.server_type, "Tibia") == 0);
+	CHECK(std::strcmp(config.server_version, "7.7") == 0);
+	CHECK(std::strcmp(config.client_version, "7.7") == 0);
+	CHECK(config.transport_mode == TRANSPORT_BOTH);
+	CHECK(config.websocket_port == 9172);
+	CHECK(std::strcmp(config.websocket_address, "0.0.0.0") == 0);
+
+	UnsetEnv("SENJA_QM_PASSWORD");
 }
 
-TEST_CASE("parse_duration") {
-    int val;
-    CHECK(parse_duration(&val, "5s") == true);  CHECK(val == 5);
-    CHECK(parse_duration(&val, "5m") == true);  CHECK(val == 300);
-    CHECK(parse_duration(&val, "2h") == true);  CHECK(val == 7200);
-    CHECK(parse_duration(&val, "10") == true);  CHECK(val == 10);
+TEST_CASE("read_config - fails without SENJA_QM_PASSWORD") {
+	UnsetEnv("SENJA_QM_PASSWORD");
+	ServerConfig config = {};
+	CHECK(read_config(&config) == false);
 }
 
-TEST_CASE("parse_size") {
-    int val;
-    CHECK(parse_size(&val, "4k") == true);  CHECK(val == 4096);
-    CHECK(parse_size(&val, "1M") == true);  CHECK(val == 1048576);
-    CHECK(parse_size(&val, "512") == true); CHECK(val == 512);
+TEST_CASE("read_config - overrides from env") {
+	SetEnv("SENJA_QM_PASSWORD",     "mypass");
+	SetEnv("SENJA_LOGIN_PORT",      "8888");
+	SetEnv("SENJA_MAX_CONNECTIONS", "50");
+	SetEnv("SENJA_QM_HOST",         "10.0.0.1");
+	SetEnv("SENJA_QM_PORT",         "7174");
+	SetEnv("SENJA_WORLD_NAME",      "TestWorld");
+
+	ServerConfig config = {};
+	CHECK(read_config(&config) == true);
+
+	CHECK(config.login_port == 8888);
+	CHECK(config.max_connections == 50);
+	CHECK(std::strcmp(config.query_manager_host, "10.0.0.1") == 0);
+	CHECK(config.query_manager_port == 7174);
+	CHECK(std::strcmp(config.query_manager_password, "mypass") == 0);
+	CHECK(std::strcmp(config.status_world, "TestWorld") == 0);
+
+	UnsetEnv("SENJA_QM_PASSWORD");
+	UnsetEnv("SENJA_LOGIN_PORT");
+	UnsetEnv("SENJA_MAX_CONNECTIONS");
+	UnsetEnv("SENJA_QM_HOST");
+	UnsetEnv("SENJA_QM_PORT");
+	UnsetEnv("SENJA_WORLD_NAME");
 }
 
-TEST_CASE("parse_string - strips quotes") {
-    char dest[32];
-    CHECK(parse_string(dest, sizeof(dest), "\"Hello\"") == true);
-    CHECK(std::strcmp(dest, "Hello") == 0);
+TEST_CASE("read_config - TransportMode tcp") {
+	SetEnv("SENJA_QM_PASSWORD",     "x");
+	SetEnv("SENJA_TRANSPORT_MODE",  "tcp");
 
-    CHECK(parse_string(dest, sizeof(dest), "'World'") == true);
-    CHECK(std::strcmp(dest, "World") == 0);
+	ServerConfig config = {};
+	CHECK(read_config(&config) == true);
+	CHECK(config.transport_mode == TRANSPORT_TCP);
 
-    CHECK(parse_string(dest, sizeof(dest), "NoQuotes") == true);
-    CHECK(std::strcmp(dest, "NoQuotes") == 0);
+	UnsetEnv("SENJA_QM_PASSWORD");
+	UnsetEnv("SENJA_TRANSPORT_MODE");
 }
 
-TEST_CASE("read_config - from temp file") {
-    const char* tmpfile = "/tmp/test_loginserver_config.cfg";
-    FILE* f = std::fopen(tmpfile, "w");
-    REQUIRE(f != nullptr);
-    std::fprintf(f, "LoginPort = 7171\n");
-    std::fprintf(f, "ConnectionTimeout = 10s\n");
-    std::fprintf(f, "MaxConnections = 20\n");
-    std::fprintf(f, "QueryManagerHost = \"192.168.1.1\"\n");
-    std::fprintf(f, "QueryManagerPort = 7173\n");
-    std::fprintf(f, "# This is a comment\n");
-    std::fprintf(f, "ServerType = \"Tibia\"\n");
-    std::fclose(f);
+TEST_CASE("read_config - TransportMode websocket") {
+	SetEnv("SENJA_QM_PASSWORD",     "x");
+	SetEnv("SENJA_TRANSPORT_MODE",  "websocket");
 
-    ServerConfig config = {};
-    CHECK(read_config(tmpfile, &config) == true);
-    CHECK(config.login_port == 7171);
-    CHECK(config.connection_timeout == 10);
-    CHECK(config.max_connections == 20);
-    CHECK(std::strcmp(config.query_manager_host, "192.168.1.1") == 0);
-    CHECK(config.query_manager_port == 7173);
-    CHECK(std::strcmp(config.server_type, "Tibia") == 0);
+	ServerConfig config = {};
+	CHECK(read_config(&config) == true);
+	CHECK(config.transport_mode == TRANSPORT_WEBSOCKET);
 
-    std::remove(tmpfile);
+	UnsetEnv("SENJA_QM_PASSWORD");
+	UnsetEnv("SENJA_TRANSPORT_MODE");
 }
 
-TEST_CASE("parse TransportMode") {
-    ServerConfig config = {};
-    const char *path = "/tmp/test_transport_mode.cfg";
+TEST_CASE("read_config - TransportMode both (default)") {
+	SetEnv("SENJA_QM_PASSWORD",     "x");
+	SetEnv("SENJA_TRANSPORT_MODE",  "both");
 
-    SUBCASE("tcp") {
-        FILE *f = fopen(path, "w");
-        fprintf(f, "TransportMode = tcp\n");
-        fclose(f);
-        read_config(path, &config);
-        CHECK(config.transport_mode == TRANSPORT_TCP);
-    }
-    SUBCASE("websocket") {
-        FILE *f = fopen(path, "w");
-        fprintf(f, "TransportMode = websocket\n");
-        fclose(f);
-        read_config(path, &config);
-        CHECK(config.transport_mode == TRANSPORT_WEBSOCKET);
-    }
-    SUBCASE("both") {
-        FILE *f = fopen(path, "w");
-        fprintf(f, "TransportMode = both\n");
-        fclose(f);
-        read_config(path, &config);
-        CHECK(config.transport_mode == TRANSPORT_BOTH);
-    }
+	ServerConfig config = {};
+	CHECK(read_config(&config) == true);
+	CHECK(config.transport_mode == TRANSPORT_BOTH);
 
-    remove(path);
+	UnsetEnv("SENJA_QM_PASSWORD");
+	UnsetEnv("SENJA_TRANSPORT_MODE");
 }
 
-TEST_CASE("parse WebSocketPort") {
-    ServerConfig config = {};
-    const char *path = "/tmp/test_ws_port.cfg";
-    FILE *f = fopen(path, "w");
-    fprintf(f, "WebSocketPort = 8080\n");
-    fclose(f);
-    read_config(path, &config);
-    CHECK(config.websocket_port == 8080);
-    remove(path);
+TEST_CASE("read_config - WebSocket port and address") {
+	SetEnv("SENJA_QM_PASSWORD",       "x");
+	SetEnv("SENJA_WEBSOCKET_PORT",    "8080");
+	SetEnv("SENJA_WEBSOCKET_ADDRESS", "127.0.0.1");
+
+	ServerConfig config = {};
+	CHECK(read_config(&config) == true);
+	CHECK(config.websocket_port == 8080);
+	CHECK(std::strcmp(config.websocket_address, "127.0.0.1") == 0);
+
+	UnsetEnv("SENJA_QM_PASSWORD");
+	UnsetEnv("SENJA_WEBSOCKET_PORT");
+	UnsetEnv("SENJA_WEBSOCKET_ADDRESS");
 }
 
-TEST_CASE("parse WebSocketAddress") {
-    ServerConfig config = {};
-    const char *path = "/tmp/test_ws_addr.cfg";
-    FILE *f = fopen(path, "w");
-    fprintf(f, "WebSocketAddress = \"192.168.1.1\"\n");
-    fclose(f);
-    read_config(path, &config);
-    CHECK(strcmp(config.websocket_address, "192.168.1.1") == 0);
-    remove(path);
+TEST_CASE("parse_motd - formats hash and text") {
+	char dest[256] = {};
+	parse_motd(dest, sizeof(dest), "Hello World");
+	// Should be non-empty and contain a newline separating hash from text
+	CHECK(dest[0] != '\0');
+	const char *nl = std::strchr(dest, '\n');
+	REQUIRE(nl != nullptr);
+	CHECK(std::strcmp(nl + 1, "Hello World") == 0);
 }

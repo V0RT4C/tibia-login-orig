@@ -36,14 +36,7 @@ struct ServerConfig {
     char websocket_address[16];
 };
 
-bool parse_boolean(bool* dest, const char* str);
-bool parse_integer(int* dest, const char* str);
-bool parse_duration(int* dest, const char* str);
-bool parse_size(int* dest, const char* str);
-bool parse_string(char* dest, int dest_capacity, const char* str);
 void parse_motd(char* dest, int dest_capacity, const char* str);
-bool read_config(const char* filename, ServerConfig* config);
-
-#define parse_string_buf(dest, str) parse_string(dest, sizeof(dest), str)
+bool read_config(ServerConfig* config);
 
 #endif // LOGINSERVER_CONFIG_CONFIG_H
