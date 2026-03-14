@@ -46,8 +46,8 @@ TEST_CASE("read_config - fails without SENJA_QM_PASSWORD") {
 
 TEST_CASE("read_config - overrides from env") {
 	SetEnv("SENJA_QM_PASSWORD",     "mypass");
-	SetEnv("SENJA_LOGIN_PORT",      "8888");
-	SetEnv("SENJA_MAX_CONNECTIONS", "50");
+	SetEnv("SENJA_LOGINSERVER_TCP_PORT", "8888");
+	SetEnv("SENJA_LOGINSERVER_MAX_CONNECTIONS", "50");
 	SetEnv("SENJA_QM_HOST",         "10.0.0.1");
 	SetEnv("SENJA_QM_PORT",         "7174");
 	SetEnv("SENJA_WORLD_NAME",      "TestWorld");
@@ -63,8 +63,8 @@ TEST_CASE("read_config - overrides from env") {
 	CHECK(std::strcmp(config.status_world, "TestWorld") == 0);
 
 	UnsetEnv("SENJA_QM_PASSWORD");
-	UnsetEnv("SENJA_LOGIN_PORT");
-	UnsetEnv("SENJA_MAX_CONNECTIONS");
+	UnsetEnv("SENJA_LOGINSERVER_TCP_PORT");
+	UnsetEnv("SENJA_LOGINSERVER_MAX_CONNECTIONS");
 	UnsetEnv("SENJA_QM_HOST");
 	UnsetEnv("SENJA_QM_PORT");
 	UnsetEnv("SENJA_WORLD_NAME");
@@ -108,8 +108,8 @@ TEST_CASE("read_config - TransportMode both (default)") {
 
 TEST_CASE("read_config - WebSocket port and address") {
 	SetEnv("SENJA_QM_PASSWORD",       "x");
-	SetEnv("SENJA_WEBSOCKET_PORT",    "8080");
-	SetEnv("SENJA_WEBSOCKET_ADDRESS", "127.0.0.1");
+	SetEnv("SENJA_LOGINSERVER_WS_PORT", "8080");
+	SetEnv("SENJA_LOGINSERVER_WS_ADDRESS", "127.0.0.1");
 
 	ServerConfig config = {};
 	CHECK(read_config(&config) == true);
@@ -117,8 +117,8 @@ TEST_CASE("read_config - WebSocket port and address") {
 	CHECK(std::strcmp(config.websocket_address, "127.0.0.1") == 0);
 
 	UnsetEnv("SENJA_QM_PASSWORD");
-	UnsetEnv("SENJA_WEBSOCKET_PORT");
-	UnsetEnv("SENJA_WEBSOCKET_ADDRESS");
+	UnsetEnv("SENJA_LOGINSERVER_WS_PORT");
+	UnsetEnv("SENJA_LOGINSERVER_WS_ADDRESS");
 }
 
 TEST_CASE("parse_motd - formats hash and text") {

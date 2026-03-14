@@ -26,11 +26,11 @@ static int EnvInt(const char *Name, int Default){
 
 bool read_config(ServerConfig *config){
 	// Service Config
-	config->login_port         = EnvInt("SENJA_LOGIN_PORT", 7171);
-	config->connection_timeout = EnvInt("SENJA_CONNECTION_TIMEOUT", 5);
-	config->max_connections    = EnvInt("SENJA_MAX_CONNECTIONS", 10);
-	config->max_status_records  = EnvInt("SENJA_MAX_STATUS_RECORDS", 1024);
-	config->min_status_interval = EnvInt("SENJA_MIN_STATUS_INTERVAL", 300);
+	config->login_port         = EnvInt("SENJA_LOGINSERVER_TCP_PORT", 7171);
+	config->connection_timeout = EnvInt("SENJA_LOGINSERVER_CONNECTION_TIMEOUT", 5);
+	config->max_connections    = EnvInt("SENJA_LOGINSERVER_MAX_CONNECTIONS", 10);
+	config->max_status_records  = EnvInt("SENJA_LOGINSERVER_MAX_STATUS_RECORDS", 1024);
+	config->min_status_interval = EnvInt("SENJA_LOGINSERVER_MIN_STATUS_INTERVAL", 300);
 
 	string_buf_copy(config->query_manager_host, EnvStr("SENJA_QM_HOST", "127.0.0.1"));
 	config->query_manager_port = EnvInt("SENJA_QM_PORT", 7173);
@@ -44,13 +44,13 @@ bool read_config(ServerConfig *config){
 
 	// Service Info
 	string_buf_copy(config->status_world,   EnvStr("SENJA_WORLD_NAME", "Senja"));
-	string_buf_copy(config->url,           EnvStr("SENJA_URL", ""));
-	string_buf_copy(config->location,      EnvStr("SENJA_LOCATION", ""));
-	string_buf_copy(config->server_type,    EnvStr("SENJA_SERVER_TYPE", "Tibia"));
-	string_buf_copy(config->server_version, EnvStr("SENJA_SERVER_VERSION", "7.7"));
-	string_buf_copy(config->client_version, EnvStr("SENJA_CLIENT_VERSION", "7.7"));
+	string_buf_copy(config->url,           EnvStr("SENJA_LOGINSERVER_URL", ""));
+	string_buf_copy(config->location,      EnvStr("SENJA_LOGINSERVER_LOCATION", ""));
+	string_buf_copy(config->server_type,    EnvStr("SENJA_LOGINSERVER_SERVER_TYPE", "Tibia"));
+	string_buf_copy(config->server_version, EnvStr("SENJA_LOGINSERVER_SERVER_VERSION", "7.7"));
+	string_buf_copy(config->client_version, EnvStr("SENJA_LOGINSERVER_CLIENT_VERSION", "7.7"));
 
-	const char *Motd = EnvStr("SENJA_MOTD", "Welcome to Tibia!");
+	const char *Motd = EnvStr("SENJA_LOGINSERVER_MOTD", "Welcome to Tibia!");
 	config->motd[0] = '\0';
 	if(Motd[0] != '\0'){
 		parse_motd(config->motd, sizeof(config->motd), Motd);
@@ -65,9 +65,9 @@ bool read_config(ServerConfig *config){
 	}else{
 		config->transport_mode = TRANSPORT_BOTH;
 	}
-	config->websocket_port = EnvInt("SENJA_WEBSOCKET_PORT", 9172);
+	config->websocket_port = EnvInt("SENJA_LOGINSERVER_WS_PORT", 9172);
 	string_copy(config->websocket_address, (int)sizeof(config->websocket_address),
-			EnvStr("SENJA_WEBSOCKET_ADDRESS", "0.0.0.0"));
+			EnvStr("SENJA_LOGINSERVER_WS_ADDRESS", "0.0.0.0"));
 
 	return true;
 }
