@@ -145,8 +145,9 @@ void process_login_request(Connection *connection, RsaKey& rsa_key,
 	connection->xtea[2] = read_buffer.read_u32();
 	connection->xtea[3] = read_buffer.read_u32();
 
+	char email[51];
 	char password[30];
-	int account_id = read_buffer.read_u32();
+	read_buffer.read_string(email, sizeof(email));
 	read_buffer.read_string(password, sizeof(password));
 	if(read_buffer.overflowed()){
 		LOG_ERR("Malformed asymmetric data from %s", connection->remote_address);
@@ -154,8 +155,8 @@ void process_login_request(Connection *connection, RsaKey& rsa_key,
 		return;
 	}
 
-	if(account_id <= 0){
-		send_login_error(connection, "You must enter an account number.");
+	if(email[0] == '\0'){
+		send_login_error(connection, "You must enter an email address.");
 		return;
 	}
 
@@ -177,6 +178,15 @@ void process_login_request(Connection *connection, RsaKey& rsa_key,
 	int num_characters = 0;
 	int premium_days = 0;
 	CharacterLoginData characters[50];
+	int account_id = 0;
+	int resolve_code = resolve_email(client, email, &account_id);
+	if(resolve_code != 0){
+		// Use same generic error as invalid credentials to avoid leaking
+		// whether an email exists.
+		send_login_error(connection, "Email or password is not correct.");
+		return;
+	}
+
 	int login_code = login_account(client, account_id, password, ip_string,
 			static_cast<int>(std::size(characters)), &num_characters, characters, &premium_days);
 	switch(login_code){
@@ -185,9 +195,9 @@ void process_login_request(Connection *connection, RsaKey& rsa_key,
 			break;
 		}
 
-		case 1:		// Invalid account number
+		case 1:		// Invalid account
 		case 2:{	// Invalid password
-			send_login_error(connection, "Accountnumber or password is not correct.");
+			send_login_error(connection, "Email or password is not correct.");
 			break;
 		}
 

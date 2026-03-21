@@ -31,6 +31,8 @@
 // ---------------------------------------------------------------------------
 static bool g_close_called = false;
 static int g_stub_login_result = 0;
+static int g_stub_resolve_result = 0;
+static int g_stub_resolved_account_id = 1;
 static int g_stub_num_characters = 0;
 static CharacterLoginData g_stub_characters[50] = {};
 static int g_stub_premium_days = 0;
@@ -41,6 +43,11 @@ static int g_stub_premium_days = 0;
 void close_connection(Connection* connection) {
     g_close_called = true;
     connection->state = ConnectionState::Free;
+}
+
+int resolve_email(QueryClient& /*client*/, const char* /*email*/, int* account_id) {
+    *account_id = g_stub_resolved_account_id;
+    return g_stub_resolve_result;
 }
 
 int login_account(QueryClient& /*client*/, int /*account_id*/,
