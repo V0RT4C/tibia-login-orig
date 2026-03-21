@@ -45,3 +45,20 @@ int login_account(QueryClient& client, int account_id, const char* password,
     }
     return result;
 }
+
+int resolve_email(QueryClient& client, const char* email, int* account_id) {
+    uint8 buffer[kb(1)];
+    BufferWriter write_buffer = client.prepare_query(
+            QueryType::ResolveEmail, buffer, sizeof(buffer));
+    write_buffer.write_string(email);
+
+    BufferReader read_buffer;
+    QueryStatus status = client.execute_query(true, &write_buffer, &read_buffer);
+    if (status == QueryStatus::Ok) {
+        *account_id = (int)read_buffer.read_u32();
+        return 0;
+    } else if (status == QueryStatus::Error) {
+        return read_buffer.read_u8(); // 1 = email not found
+    }
+    return -1;
+}

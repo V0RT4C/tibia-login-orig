@@ -18,6 +18,7 @@ enum class QueryStatus : int {
 enum class QueryType : uint8 {
     Login        = 0,
     LoginAccount = 11,
+    ResolveEmail = 13,
     GetWorlds    = 150,
 };
 
